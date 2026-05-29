@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../data/ledger_store.dart';
@@ -9,8 +10,15 @@ import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/ledger_formatters.dart';
 
-class StatisticsPage extends StatelessWidget {
+class StatisticsPage extends StatefulWidget {
   const StatisticsPage({super.key});
+
+  @override
+  State<StatisticsPage> createState() => _StatisticsPageState();
+}
+
+class _StatisticsPageState extends State<StatisticsPage> {
+  _StatisticsPeriod _selectedPeriod = _StatisticsPeriod.month;
 
   @override
   Widget build(BuildContext context) {
@@ -18,11 +26,18 @@ class StatisticsPage extends StatelessWidget {
       animation: ledgerStore,
       builder: (context, child) {
         final now = DateTime.now();
-        final expense = ledgerStore.expenseForMonth(now);
-        final dailyAverage = expense / _elapsedDaysForMonth(now);
-        final largestExpense = ledgerStore.largestExpenseForMonth(now);
-        final categories = ledgerStore.expenseCategoryTotalsForMonth(now);
-        final dailyTotals = ledgerStore.dailyExpenseTotalsForMonth(now);
+        final range = _periodRangeFor(_selectedPeriod, now);
+        final expenseRecords = _expenseRecordsInRange(ledgerStore.records, range);
+        final totalExpense = expenseRecords.fold<double>(
+          0,
+          (sum, record) => sum + record.amount,
+        );
+        final elapsedDays = _elapsedDaysForPeriod(_selectedPeriod, now);
+        final dailyAverage = elapsedDays == 0 ? 0.0 : totalExpense / elapsedDays;
+        final largestExpense = _largestExpense(expenseRecords);
+        final categories = _categoryTotalsForRecords(expenseRecords);
+        final periodLabel = _periodLabel(_selectedPeriod);
+        final periodRangeText = _formatPeriodRangeText(range, now);
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -32,10 +47,21 @@ class StatisticsPage extends StatelessWidget {
               children: [
                 const _StatisticsHeader(),
                 const SizedBox(height: 20),
-                const _PeriodTabs(),
+                _PeriodTabs(
+                  selectedPeriod: _selectedPeriod,
+                  onSelected: (period) {
+                    if (period == _selectedPeriod) {
+                      return;
+                    }
+                    setState(() => _selectedPeriod = period);
+                  },
+                ),
+                const SizedBox(height: 8),
+                _PeriodRangePill(text: periodRangeText),
                 const SizedBox(height: 18),
                 _TotalCard(
-                  totalExpense: expense,
+                  periodLabel: periodLabel,
+                  totalExpense: totalExpense,
                   topCategory: categories.isEmpty ? null : categories.first,
                 ),
                 const SizedBox(height: 16),
@@ -48,9 +74,14 @@ class StatisticsPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 _CategoryBreakdown(categories: categories),
                 const SizedBox(height: 28),
-                const _SectionTitle(title: '本月趋势'),
+                _SectionTitle(title: '$periodLabel趋势'),
                 const SizedBox(height: 12),
-                _TrendPanel(dailyTotals: dailyTotals),
+                _TrendPanel(
+                  period: _selectedPeriod,
+                  expenseRecords: expenseRecords,
+                  range: range,
+                  now: now,
+                ),
               ],
             ),
           ),
@@ -70,61 +101,125 @@ class _StatisticsHeader extends StatelessWidget {
       children: [
         Text('统计', style: AppTextStyles.pageTitle(context)),
         const SizedBox(height: 4),
-        Text('按月查看你的钱都流向哪里', style: AppTextStyles.pageSubtitle(context)),
+        Text('按周、月、年查看你的钱都流向哪里', style: AppTextStyles.pageSubtitle(context)),
       ],
     );
   }
 }
 
 class _PeriodTabs extends StatelessWidget {
-  const _PeriodTabs();
+  const _PeriodTabs({
+    required this.selectedPeriod,
+    required this.onSelected,
+  });
+
+  final _StatisticsPeriod selectedPeriod;
+  final ValueChanged<_StatisticsPeriod> onSelected;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
-        _PeriodChip(label: '本月', selected: true),
-        SizedBox(width: 8),
-        _PeriodChip(label: '本周'),
-        SizedBox(width: 8),
-        _PeriodChip(label: '本年'),
+      children: [
+        _PeriodChip(
+          label: '本月',
+          selected: selectedPeriod == _StatisticsPeriod.month,
+          onTap: () => onSelected(_StatisticsPeriod.month),
+        ),
+        const SizedBox(width: 8),
+        _PeriodChip(
+          label: '本周',
+          selected: selectedPeriod == _StatisticsPeriod.week,
+          onTap: () => onSelected(_StatisticsPeriod.week),
+        ),
+        const SizedBox(width: 8),
+        _PeriodChip(
+          label: '本年',
+          selected: selectedPeriod == _StatisticsPeriod.year,
+          onTap: () => onSelected(_StatisticsPeriod.year),
+        ),
       ],
     );
   }
 }
 
 class _PeriodChip extends StatelessWidget {
-  const _PeriodChip({required this.label, this.selected = false});
+  const _PeriodChip({
+    required this.label,
+    this.selected = false,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? colors.primary : colors.surface,
+          borderRadius: AppRadii.card,
+          border: Border.all(
+            color: selected ? colors.primary : colors.surfaceBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.chip(context, selected: selected),
+        ),
+      ),
+    );
+  }
+}
+
+class _PeriodRangePill extends StatelessWidget {
+  const _PeriodRangePill({required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: selected ? colors.primary : colors.surface,
-        borderRadius: AppRadii.card,
-        border: Border.all(
-          color: selected ? colors.primary : colors.surfaceBorder,
-        ),
+        color: colors.primarySoft,
+        border: Border.all(color: colors.surfaceBorder),
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(
-        label,
-        style: AppTextStyles.chip(context, selected: selected),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.calendar_today_outlined, size: 14, color: colors.primary),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: AppTextStyles.bodyMuted(
+              context,
+            ).copyWith(color: colors.textBody, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _TotalCard extends StatelessWidget {
-  const _TotalCard({required this.totalExpense, required this.topCategory});
+  const _TotalCard({
+    required this.periodLabel,
+    required this.totalExpense,
+    required this.topCategory,
+  });
 
+  final String periodLabel;
   final double totalExpense;
   final CategoryTotal? topCategory;
 
@@ -141,7 +236,7 @@ class _TotalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('本月总支出', style: AppTextStyles.cardLabel(context)),
+          Text('$periodLabel总支出', style: AppTextStyles.cardLabel(context)),
           const SizedBox(height: 12),
           Text(
             formatCurrency(totalExpense),
@@ -336,24 +431,51 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-class _TrendPanel extends StatelessWidget {
-  const _TrendPanel({required this.dailyTotals});
+class _TrendPanel extends StatefulWidget {
+  const _TrendPanel({
+    required this.period,
+    required this.expenseRecords,
+    required this.range,
+    required this.now,
+  });
 
-  final List<DailyExpenseTotal> dailyTotals;
+  final _StatisticsPeriod period;
+  final List<LedgerRecord> expenseRecords;
+  final _DateRange range;
+  final DateTime now;
+
+  @override
+  State<_TrendPanel> createState() => _TrendPanelState();
+}
+
+class _TrendPanelState extends State<_TrendPanel> {
+  final ScrollController _scrollController = ScrollController();
+  String? _lastAutoScrollToken;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final buckets = _bucketDailyTotals(dailyTotals);
+    final buckets = _trendBucketsForPeriod(
+      period: widget.period,
+      expenseRecords: widget.expenseRecords,
+      range: widget.range,
+      now: widget.now,
+    );
     final maxAmount = buckets.fold<double>(
       0,
       (max, bucket) => math.max(max, bucket.amount),
     );
 
-    if (maxAmount == 0) {
+    if (buckets.isEmpty || maxAmount == 0) {
       return const _EmptyStatsPanel(
         icon: Icons.bar_chart_outlined,
         title: '暂无趋势数据',
-        subtitle: '添加支出记录后会显示本月趋势',
+        subtitle: '添加支出记录后会显示趋势',
       );
     }
 
@@ -361,18 +483,87 @@ class _TrendPanel extends StatelessWidget {
       height: 180,
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
       decoration: AppDecorations.surface(context),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final bucket in buckets)
-            _TrendBar(
-              label: bucket.label,
-              amount: bucket.amount,
-              maxAmount: maxAmount,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final neededWidth = buckets.length * _trendBarItemWidth +
+              math.max(0, buckets.length - 1) * _trendBarMinSpacing;
+          final contentWidth = math.max(neededWidth, constraints.maxWidth);
+          final spacing = buckets.length <= 1
+              ? 0.0
+              : (contentWidth - buckets.length * _trendBarItemWidth) /
+                    (buckets.length - 1);
+          final canScroll = neededWidth > constraints.maxWidth;
+          final firstDataIndex = buckets.indexWhere((bucket) => bucket.amount > 0);
+          final targetIndex = firstDataIndex == -1 ? 0 : firstDataIndex;
+          _scheduleAutoScroll(
+            canScroll: canScroll,
+            targetIndex: targetIndex,
+            itemExtent: _trendBarItemWidth + spacing,
+            token:
+                '${widget.period.index}-${buckets.length}-$targetIndex-${canScroll ? 1 : 0}',
+          );
+
+          return ScrollConfiguration(
+            behavior: const MaterialScrollBehavior().copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+                PointerDeviceKind.stylus,
+              },
             ),
-        ],
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: canScroll
+                  ? const BouncingScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              child: SizedBox(
+                width: contentWidth,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (var index = 0; index < buckets.length; index++) ...[
+                      SizedBox(
+                        width: _trendBarItemWidth,
+                        child: _TrendBar(
+                          label: buckets[index].label,
+                          amount: buckets[index].amount,
+                          maxAmount: maxAmount,
+                        ),
+                      ),
+                      if (index != buckets.length - 1) SizedBox(width: spacing),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
+  }
+
+  void _scheduleAutoScroll({
+    required bool canScroll,
+    required int targetIndex,
+    required double itemExtent,
+    required String token,
+  }) {
+    if (_lastAutoScrollToken == token) {
+      return;
+    }
+    _lastAutoScrollToken = token;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      final targetOffset = canScroll ? itemExtent * targetIndex : 0.0;
+      final maxOffset = _scrollController.position.maxScrollExtent;
+      final clampedOffset = targetOffset.clamp(0.0, maxOffset);
+      _scrollController.jumpTo(clampedOffset);
+    });
   }
 }
 
@@ -393,22 +584,25 @@ class _TrendBar extends StatelessWidget {
     final active = amount == maxAmount;
     final height = 18 + (amount / maxAmount * 104);
 
-    return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Container(
-            width: 16,
-            height: height,
-            decoration: BoxDecoration(
-              color: active ? colors.primary : colors.primarySoft,
-              borderRadius: AppRadii.card,
-            ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          width: 16,
+          height: height,
+          decoration: BoxDecoration(
+            color: active ? colors.primary : colors.primarySoft,
+            borderRadius: AppRadii.card,
           ),
-          const SizedBox(height: 8),
-          Text(label, style: AppTextStyles.bodyMuted(context)),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.bodyMuted(context),
+        ),
+      ],
     );
   }
 }
@@ -456,44 +650,229 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-int _elapsedDaysForMonth(DateTime date) {
-  final now = DateTime.now();
-  if (date.year == now.year && date.month == now.month) {
-    return now.day;
-  }
-  return DateTime(date.year, date.month + 1, 0).day;
+enum _StatisticsPeriod { week, month, year }
+
+class _DateRange {
+  const _DateRange({
+    required this.start,
+    required this.endExclusive,
+  });
+
+  final DateTime start;
+  final DateTime endExclusive;
 }
 
-List<_TrendBucket> _bucketDailyTotals(List<DailyExpenseTotal> dailyTotals) {
-  if (dailyTotals.isEmpty) {
-    return [];
+String _periodLabel(_StatisticsPeriod period) {
+  switch (period) {
+    case _StatisticsPeriod.week:
+      return '本周';
+    case _StatisticsPeriod.month:
+      return '本月';
+    case _StatisticsPeriod.year:
+      return '本年';
+  }
+}
+
+String _formatPeriodRangeText(_DateRange range, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  final rangeEnd = range.endExclusive.subtract(const Duration(days: 1));
+  final displayEnd = today.isBefore(rangeEnd) ? today : rangeEnd;
+  return '${_formatDate(range.start)} - ${_formatDate(displayEnd)}';
+}
+
+String _formatDate(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}.$month.$day';
+}
+
+_DateRange _periodRangeFor(_StatisticsPeriod period, DateTime now) {
+  final dayStart = DateTime(now.year, now.month, now.day);
+
+  switch (period) {
+    case _StatisticsPeriod.week:
+      final weekStart = dayStart.subtract(Duration(days: dayStart.weekday - 1));
+      return _DateRange(
+        start: weekStart,
+        endExclusive: weekStart.add(const Duration(days: 7)),
+      );
+    case _StatisticsPeriod.month:
+      final monthStart = DateTime(now.year, now.month, 1);
+      return _DateRange(
+        start: monthStart,
+        endExclusive: DateTime(now.year, now.month + 1, 1),
+      );
+    case _StatisticsPeriod.year:
+      final yearStart = DateTime(now.year, 1, 1);
+      return _DateRange(
+        start: yearStart,
+        endExclusive: DateTime(now.year + 1, 1, 1),
+      );
+  }
+}
+
+int _elapsedDaysForPeriod(_StatisticsPeriod period, DateTime now) {
+  switch (period) {
+    case _StatisticsPeriod.week:
+      return now.weekday;
+    case _StatisticsPeriod.month:
+      return now.day;
+    case _StatisticsPeriod.year:
+      return now.difference(DateTime(now.year, 1, 1)).inDays + 1;
+  }
+}
+
+List<LedgerRecord> _expenseRecordsInRange(
+  List<LedgerRecord> records,
+  _DateRange range,
+) {
+  return records.where((record) {
+    return record.type == LedgerRecordType.expense &&
+        !record.createdAt.isBefore(range.start) &&
+        record.createdAt.isBefore(range.endExclusive);
+  }).toList();
+}
+
+LedgerRecord? _largestExpense(List<LedgerRecord> expenseRecords) {
+  if (expenseRecords.isEmpty) {
+    return null;
+  }
+  return expenseRecords.reduce(
+    (largest, record) => record.amount > largest.amount ? record : largest,
+  );
+}
+
+List<CategoryTotal> _categoryTotalsForRecords(List<LedgerRecord> expenseRecords) {
+  final totals = <String, double>{};
+  for (final record in expenseRecords) {
+    totals.update(
+      record.category,
+      (value) => value + record.amount,
+      ifAbsent: () => record.amount,
+    );
   }
 
-  const bucketCount = 7;
-  final bucketSize = (dailyTotals.length / bucketCount).ceil();
+  final totalExpense = totals.values.fold<double>(0, (sum, item) => sum + item);
+  return totals.entries.map((entry) {
+    final percent = totalExpense == 0 ? 0.0 : entry.value / totalExpense;
+    return CategoryTotal(
+      category: entry.key,
+      amount: entry.value,
+      percent: percent,
+    );
+  }).toList()..sort((a, b) => b.amount.compareTo(a.amount));
+}
+
+List<_TrendBucket> _trendBucketsForPeriod({
+  required _StatisticsPeriod period,
+  required List<LedgerRecord> expenseRecords,
+  required _DateRange range,
+  required DateTime now,
+}) {
+  switch (period) {
+    case _StatisticsPeriod.week:
+      return _weeklyTrendBuckets(expenseRecords, range, now);
+    case _StatisticsPeriod.month:
+      return _monthlyTrendBuckets(expenseRecords, range, now);
+    case _StatisticsPeriod.year:
+      return _yearlyTrendBuckets(expenseRecords, now);
+  }
+}
+
+Map<DateTime, double> _dailyTotalsMap(List<LedgerRecord> expenseRecords) {
+  final totalsByDay = <DateTime, double>{};
+  for (final record in expenseRecords) {
+    final day = DateTime(
+      record.createdAt.year,
+      record.createdAt.month,
+      record.createdAt.day,
+    );
+    totalsByDay.update(
+      day,
+      (value) => value + record.amount,
+      ifAbsent: () => record.amount,
+    );
+  }
+  return totalsByDay;
+}
+
+List<_TrendBucket> _weeklyTrendBuckets(
+  List<LedgerRecord> expenseRecords,
+  _DateRange range,
+  DateTime now,
+) {
+  final totalsByDay = _dailyTotalsMap(expenseRecords);
+  final today = DateTime(now.year, now.month, now.day);
+
   final buckets = <_TrendBucket>[];
-
-  for (var index = 0; index < bucketCount; index++) {
-    final start = index * bucketSize;
-    if (start >= dailyTotals.length) {
-      break;
-    }
-
-    final end = math.min(start + bucketSize, dailyTotals.length);
-    final amount = dailyTotals
-        .sublist(start, end)
-        .fold<double>(0, (sum, day) => sum + day.amount);
+  for (var day = range.start;
+      day.isBefore(range.endExclusive);
+      day = day.add(const Duration(days: 1))) {
+    final amount = totalsByDay[day] ?? 0;
     buckets.add(
-      _TrendBucket(label: dailyTotals[start].day.toString(), amount: amount),
+      _TrendBucket(
+        label: '${day.weekday}',
+        summaryLabel: '${day.month}月${day.day}日',
+        amount: amount,
+        isToday: day == today,
+      ),
     );
   }
 
   return buckets;
 }
 
+List<_TrendBucket> _monthlyTrendBuckets(
+  List<LedgerRecord> expenseRecords,
+  _DateRange range,
+  DateTime now,
+) {
+  final totalsByDay = _dailyTotalsMap(expenseRecords);
+  final daysInMonth = range.endExclusive.difference(range.start).inDays;
+  final today = DateTime(now.year, now.month, now.day);
+  return List.generate(daysInMonth, (index) => index + 1).map((day) {
+    final date = DateTime(range.start.year, range.start.month, day);
+    return _TrendBucket(
+      label: '$day日',
+      summaryLabel: '${date.month}月$day日',
+      amount: totalsByDay[date] ?? 0,
+      isToday: date == today,
+    );
+  }).toList();
+}
+
+List<_TrendBucket> _yearlyTrendBuckets(List<LedgerRecord> expenseRecords, DateTime now) {
+  final monthlyTotals = List<double>.filled(12, 0);
+
+  for (final record in expenseRecords) {
+    monthlyTotals[record.createdAt.month - 1] += record.amount;
+  }
+
+  final currentMonth = now.month;
+  return [
+    for (var index = 0; index < monthlyTotals.length; index++)
+      _TrendBucket(
+        label: '${index + 1}月',
+        summaryLabel: '${index + 1}月',
+        amount: monthlyTotals[index],
+        isToday: index + 1 == currentMonth,
+      ),
+  ];
+}
+
 class _TrendBucket {
-  const _TrendBucket({required this.label, required this.amount});
+  const _TrendBucket({
+    required this.label,
+    required this.summaryLabel,
+    required this.amount,
+    required this.isToday,
+  });
 
   final String label;
+  final String summaryLabel;
   final double amount;
+  final bool isToday;
 }
+
+const double _trendBarItemWidth = 34;
+const double _trendBarMinSpacing = 8;
