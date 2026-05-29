@@ -4,6 +4,7 @@ import '../data/ledger_store.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
+import 'ledger_management_page.dart';
 import 'settings_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -92,7 +93,7 @@ class _AccountCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '默认账本',
+                      ledgerStore.currentLedger.name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: colors.onStrong,
                         fontWeight: FontWeight.w700,
@@ -104,7 +105,11 @@ class _AccountCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.edit_outlined, color: colors.positiveText, size: 22),
+              IconButton(
+                onPressed: () => _showRenameCurrentLedgerDialog(context),
+                tooltip: '编辑账本',
+                icon: Icon(Icons.edit_outlined, color: colors.positiveText, size: 22),
+              ),
             ],
           ),
         );
@@ -193,24 +198,31 @@ class _SettingsPanel extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: AppDecorations.surface(context),
-      child: const Column(
+      child: Column(
         children: [
-          _SettingTile(
+          const _SettingTile(
             icon: Icons.savings_outlined,
             title: '预算管理',
             subtitle: '设置每月可用额度',
           ),
-          _PanelDivider(),
-          _SettingTile(
+          const _PanelDivider(),
+          const _SettingTile(
             icon: Icons.category_outlined,
             title: '分类管理',
             subtitle: '调整收入和支出分类',
           ),
-          _PanelDivider(),
+          const _PanelDivider(),
           _SettingTile(
             icon: Icons.book_outlined,
             title: '账本管理',
             subtitle: '切换或新增账本',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const LedgerManagementPage(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -340,4 +352,61 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(title, style: AppTextStyles.sectionTitle(context));
   }
+}
+
+Future<void> _showRenameCurrentLedgerDialog(BuildContext context) async {
+  final name = await _showLedgerNameDialog(
+    context,
+    title: '编辑账本',
+    confirmText: '保存',
+    initialValue: ledgerStore.currentLedger.name,
+  );
+  if (name != null) {
+    await ledgerStore.renameLedger(
+      ledgerId: ledgerStore.currentLedger.id,
+      name: name,
+    );
+  }
+}
+
+Future<String?> _showLedgerNameDialog(
+  BuildContext context, {
+  required String title,
+  required String confirmText,
+  String? initialValue,
+}) async {
+  final controller = TextEditingController(text: initialValue ?? '');
+  final result = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        maxLength: 16,
+        decoration: const InputDecoration(
+          hintText: '请输入账本名称',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final name = controller.text.trim();
+            if (name.isEmpty) {
+              return;
+            }
+            Navigator.of(context).pop(name);
+          },
+          child: Text(confirmText),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  return result;
 }

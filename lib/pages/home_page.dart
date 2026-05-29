@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../data/ledger_store.dart';
 import '../models/ledger_record.dart';
@@ -331,7 +332,7 @@ class _RecentRecords extends StatelessWidget {
       child: Column(
         children: [
           for (var index = 0; index < records.length; index++) ...[
-            _RecordTile(record: records[index]),
+            _RecordSlidable(record: records[index]),
             if (index != records.length - 1) const _RecordDivider(),
           ],
         ],
@@ -420,6 +421,65 @@ class _RecordTile extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _RecordSlidable extends StatelessWidget {
+  const _RecordSlidable({required this.record});
+
+  final LedgerRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Slidable(
+      key: ValueKey(record.id),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.48,
+        children: [
+          SlidableAction(
+            onPressed: (_) => showAddRecordSheet(context, editingRecord: record),
+            backgroundColor: colors.info,
+            foregroundColor: colors.onStrong,
+            icon: Icons.edit_outlined,
+            label: '编辑',
+          ),
+          SlidableAction(
+            onPressed: (_) => _confirmDelete(context),
+            backgroundColor: colors.danger,
+            foregroundColor: colors.onStrong,
+            icon: Icons.delete_outline,
+            label: '删除',
+          ),
+        ],
+      ),
+      child: _RecordTile(record: record),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除记录'),
+        content: Text('确定删除「${record.title}」吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete == true) {
+      await ledgerStore.deleteRecord(record.id);
+    }
   }
 }
 

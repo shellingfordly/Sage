@@ -13,6 +13,7 @@ Future<void> showAddRecordSheet(
   BuildContext context, {
   LedgerRecordType initialType = LedgerRecordType.expense,
   String? initialCategory,
+  LedgerRecord? editingRecord,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -26,6 +27,7 @@ Future<void> showAddRecordSheet(
       return AddRecordSheet(
         initialType: initialType,
         initialCategory: initialCategory,
+        editingRecord: editingRecord,
       );
     },
   );
@@ -36,10 +38,12 @@ class AddRecordSheet extends StatefulWidget {
     super.key,
     this.initialType = LedgerRecordType.expense,
     this.initialCategory,
+    this.editingRecord,
   });
 
   final LedgerRecordType initialType;
   final String? initialCategory;
+  final LedgerRecord? editingRecord;
 
   @override
   State<AddRecordSheet> createState() => _AddRecordSheetState();
@@ -58,6 +62,16 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
   @override
   void initState() {
     super.initState();
+    final editingRecord = widget.editingRecord;
+    if (editingRecord != null) {
+      _type = editingRecord.type;
+      _category = editingRecord.category;
+      _selectedDate = editingRecord.createdAt;
+      _titleController.text = editingRecord.title;
+      _amountController.text = editingRecord.amount.toStringAsFixed(2);
+      return;
+    }
+
     _type = widget.initialType;
     _category = _categoriesFor(_type).contains(widget.initialCategory)
         ? widget.initialCategory!
@@ -91,7 +105,7 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      '添加记录',
+                      widget.editingRecord == null ? '添加记录' : '编辑记录',
                       style: AppTextStyles.sectionTitle(context),
                     ),
                   ),
@@ -123,9 +137,12 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
                     ? null
                     : (values) {
                         final nextType = values.first;
+                        final nextCategories = _categoriesFor(nextType);
                         setState(() {
                           _type = nextType;
-                          _category = _categoriesFor(nextType).first;
+                          _category = nextCategories.contains(_category)
+                              ? _category
+                              : nextCategories.first;
                         });
                       },
               ),
@@ -233,8 +250,8 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
           picked.year,
           picked.month,
           picked.day,
-          DateTime.now().hour,
-          DateTime.now().minute,
+          _selectedDate.hour,
+          _selectedDate.minute,
         );
       });
     }
@@ -246,13 +263,26 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
     }
 
     setState(() => _saving = true);
-    await ledgerStore.addRecord(
-      title: _titleController.text,
-      amount: double.parse(_amountController.text.trim()),
-      type: _type,
-      category: _category,
-      createdAt: _selectedDate,
-    );
+    final amount = double.parse(_amountController.text.trim());
+    final editingRecord = widget.editingRecord;
+    if (editingRecord == null) {
+      await ledgerStore.addRecord(
+        title: _titleController.text,
+        amount: amount,
+        type: _type,
+        category: _category,
+        createdAt: _selectedDate,
+      );
+    } else {
+      await ledgerStore.updateRecord(
+        recordId: editingRecord.id,
+        title: _titleController.text,
+        amount: amount,
+        type: _type,
+        category: _category,
+        createdAt: _selectedDate,
+      );
+    }
 
     if (mounted) {
       Navigator.of(context).pop();

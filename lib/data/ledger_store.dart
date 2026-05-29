@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/ledger_book.dart';
 import '../models/ledger_record.dart';
 import 'ledger_repository.dart';
 
@@ -8,21 +9,54 @@ final ledgerStore = LedgerStore(LedgerRepository());
 class LedgerStore extends ChangeNotifier {
   LedgerStore(this._repository);
 
+  static const defaultLedgerId = 'default-ledger';
+
   final LedgerRepository _repository;
-  final List<LedgerRecord> _records = [];
+  final List<LedgerBook> _ledgers = [];
+  final Map<String, List<LedgerRecord>> _recordsByLedger = {};
+  String? _currentLedgerId;
 
   bool _loaded = false;
   bool _saving = false;
 
   bool get loaded => _loaded;
   bool get saving => _saving;
-  List<LedgerRecord> get records => List.unmodifiable(_records);
+  List<LedgerBook> get ledgers => List.unmodifiable(_ledgers);
+  LedgerBook get currentLedger => _currentLedger;
+  List<LedgerRecord> get records => List.unmodifiable(_currentRecords);
+
+  LedgerBook get _currentLedger {
+    final id = _currentLedgerId;
+    if (id != null) {
+      for (final ledger in _ledgers) {
+        if (ledger.id == id) {
+          return ledger;
+        }
+      }
+    }
+    return _ledgers.first;
+  }
+
+  List<LedgerRecord> get _currentRecords {
+    final ledgerId = _currentLedger.id;
+    return _recordsByLedger.putIfAbsent(ledgerId, () => []);
+  }
 
   Future<void> load() async {
-    final loadedRecords = await _repository.loadRecords();
-    _records
+    final snapshot = await _repository.loadData();
+    _ledgers
       ..clear()
-      ..addAll(loadedRecords);
+      ..addAll(snapshot.ledgers);
+    _recordsByLedger
+      ..clear()
+      ..addAll({
+        for (final ledger in _ledgers)
+          ledger.id: List<LedgerRecord>.from(
+            snapshot.recordsByLedger[ledger.id] ?? const <LedgerRecord>[],
+          )..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+      });
+    final hasCurrent = _ledgers.any((ledger) => ledger.id == snapshot.currentLedgerId);
+    _currentLedgerId = hasCurrent ? snapshot.currentLedgerId : _ledgers.first.id;
     _loaded = true;
     notifyListeners();
   }
@@ -43,19 +77,121 @@ class LedgerStore extends ChangeNotifier {
       createdAt: createdAt,
     );
 
-    _records.insert(0, record);
-    _records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _currentRecords.insert(0, record);
+    _currentRecords.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     await _save();
   }
 
+  Future<void> updateRecord({
+    required String recordId,
+    required String title,
+    required double amount,
+    required LedgerRecordType type,
+    required String category,
+    required DateTime createdAt,
+  }) async {
+    final records = _currentRecords;
+    final index = records.indexWhere((record) => record.id == recordId);
+    if (index == -1) {
+      return;
+    }
+
+    records[index] = LedgerRecord(
+      id: recordId,
+      title: title.trim(),
+      amount: amount,
+      type: type,
+      category: category,
+      createdAt: createdAt,
+    );
+    records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    await _save();
+  }
+
+  Future<void> deleteRecord(String recordId) async {
+    final records = _currentRecords;
+    final before = records.length;
+    records.removeWhere((record) => record.id == recordId);
+    if (records.length == before) {
+      return;
+    }
+    await _save();
+  }
+
+  Future<void> createLedger(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    final ledger = LedgerBook(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      name: trimmed,
+      createdAt: DateTime.now(),
+    );
+    _ledgers.add(ledger);
+    _recordsByLedger[ledger.id] = [];
+    _currentLedgerId = ledger.id;
+    await _save();
+  }
+
+  Future<void> renameLedger({
+    required String ledgerId,
+    required String name,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    final index = _ledgers.indexWhere((ledger) => ledger.id == ledgerId);
+    if (index == -1) {
+      return;
+    }
+    _ledgers[index] = _ledgers[index].copyWith(name: trimmed);
+    await _save();
+  }
+
+  Future<void> switchLedger(String ledgerId) async {
+    if (!_ledgers.any((ledger) => ledger.id == ledgerId)) {
+      return;
+    }
+    if (_currentLedgerId == ledgerId) {
+      return;
+    }
+    _currentLedgerId = ledgerId;
+    notifyListeners();
+  }
+
+  Future<bool> deleteLedger(String ledgerId) async {
+    if (_ledgers.length <= 1 || ledgerId == defaultLedgerId) {
+      return false;
+    }
+    final index = _ledgers.indexWhere((ledger) => ledger.id == ledgerId);
+    if (index == -1) {
+      return false;
+    }
+    _ledgers.removeAt(index);
+    _recordsByLedger.remove(ledgerId);
+    if (_currentLedgerId == ledgerId) {
+      _currentLedgerId = _ledgers.first.id;
+    }
+    await _save();
+    return true;
+  }
+
+  List<LedgerRecord> recordsForLedger(String ledgerId) {
+    return List.unmodifiable(_recordsByLedger[ledgerId] ?? const <LedgerRecord>[]);
+  }
+
+  bool isDefaultLedger(String ledgerId) => ledgerId == defaultLedgerId;
+
   List<LedgerRecord> recordsForMonth(DateTime month) {
-    return _records
+    return _currentRecords
         .where((record) => _isSameMonth(record.createdAt, month))
         .toList();
   }
 
   List<LedgerRecord> recentRecords({int limit = 5}) {
-    return _records.take(limit).toList();
+    return _currentRecords.take(limit).toList();
   }
 
   double incomeForMonth(DateTime month) {
@@ -133,7 +269,16 @@ class LedgerStore extends ChangeNotifier {
   Future<void> _save() async {
     _saving = true;
     notifyListeners();
-    await _repository.saveRecords(_records);
+    await _repository.saveData(
+      LedgerRepositoryData(
+        ledgers: List<LedgerBook>.from(_ledgers),
+        currentLedgerId: _currentLedger.id,
+        recordsByLedger: {
+          for (final entry in _recordsByLedger.entries)
+            entry.key: List<LedgerRecord>.from(entry.value),
+        },
+      ),
+    );
     _saving = false;
     notifyListeners();
   }
