@@ -27,9 +27,28 @@ class AppDecorations {
   }
 
   static BoxDecoration strongSurface(BuildContext context) {
+    final colors = context.colors;
+    final isLightTheme = Theme.of(context).brightness == Brightness.light;
+    final leadingTint = isLightTheme ? 0.52 : 0.18;
+    final trailingTint = isLightTheme ? 0.34 : 0.06;
+    final borderAlpha = isLightTheme ? 0.5 : 0.35;
+    final leading = Color.alphaBlend(
+      colors.primary.withValues(alpha: leadingTint),
+      colors.strongSurface,
+    );
+    final trailing = Color.alphaBlend(
+      colors.primary.withValues(alpha: trailingTint),
+      colors.strongSurface,
+    );
+
     return BoxDecoration(
-      color: context.colors.strongSurface,
+      gradient: LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [leading, trailing],
+      ),
       borderRadius: AppRadii.card,
+      border: Border.all(color: colors.surfaceBorder.withValues(alpha: borderAlpha)),
     );
   }
 

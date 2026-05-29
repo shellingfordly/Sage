@@ -37,16 +37,14 @@ class _ThemePanel extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: AppDecorations.surface(context),
-      child: ValueListenableBuilder<ThemeMode>(
+      child: ValueListenableBuilder<AppThemeOption>(
         valueListenable: themeController,
-        builder: (context, themeMode, child) {
-          final isDarkMode = themeMode == ThemeMode.dark;
-
+        builder: (context, selectedTheme, child) {
           return Column(
             children: [
-              _ThemeSwitchTile(isDarkMode: isDarkMode),
+              _ThemeCurrentTile(selectedTheme: selectedTheme),
               const _PanelDivider(),
-              _ThemePreview(isDarkMode: isDarkMode),
+              _ThemeSelectorGrid(selectedTheme: selectedTheme),
             ],
           );
         },
@@ -55,10 +53,10 @@ class _ThemePanel extends StatelessWidget {
   }
 }
 
-class _ThemeSwitchTile extends StatelessWidget {
-  const _ThemeSwitchTile({required this.isDarkMode});
+class _ThemeCurrentTile extends StatelessWidget {
+  const _ThemeCurrentTile({required this.selectedTheme});
 
-  final bool isDarkMode;
+  final AppThemeOption selectedTheme;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +71,7 @@ class _ThemeSwitchTile extends StatelessWidget {
             height: 40,
             decoration: AppDecorations.softFill(context),
             child: Icon(
-              isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+              Icons.palette_outlined,
               color: colors.primary,
               size: 22,
             ),
@@ -84,14 +82,14 @@ class _ThemeSwitchTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '切换主题',
+                  '主题色系',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.bodyStrong(context),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  isDarkMode ? '当前：深色模式' : '当前：浅色模式',
+                  '当前：${selectedTheme.name}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.bodyMuted(context),
@@ -99,68 +97,96 @@ class _ThemeSwitchTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Switch(value: isDarkMode, onChanged: themeController.setDarkMode),
         ],
       ),
     );
   }
 }
 
-class _ThemePreview extends StatelessWidget {
-  const _ThemePreview({required this.isDarkMode});
+class _ThemeSelectorGrid extends StatelessWidget {
+  const _ThemeSelectorGrid({required this.selectedTheme});
 
-  final bool isDarkMode;
+  final AppThemeOption selectedTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(14),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final option in themeController.availableThemes)
+            _ThemeOptionTile(
+              option: option,
+              selected: option.id == selectedTheme.id,
+              onTap: () => themeController.setTheme(option),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeOptionTile extends StatelessWidget {
+  const _ThemeOptionTile({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemeOption option;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: AppDecorations.strongSurface(context),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 92,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? colors.primarySoft : colors.softFill,
+          borderRadius: AppRadii.card,
+          border: Border.all(
+            color: selected ? colors.primary : colors.surfaceBorder,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
-                color: colors.overlayOnStrong,
-                borderRadius: AppRadii.card,
-              ),
-              child: Icon(
-                Icons.palette_outlined,
-                color: colors.onStrong,
-                size: 20,
+                color: option.previewColor,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: option.brightness == Brightness.light
+                      ? colors.surfaceBorder
+                      : Colors.transparent,
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isDarkMode ? '深色主题已启用' : '浅色主题已启用',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: colors.onStrong,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '主题会立即应用到整个应用',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onStrongMuted,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
+              child: Text(
+                option.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.textBody,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  letterSpacing: 0,
+                ),
               ),
             ),
+            if (selected)
+              Icon(Icons.check_rounded, color: colors.primary, size: 16),
           ],
         ),
       ),

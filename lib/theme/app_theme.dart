@@ -6,12 +6,12 @@ class AppTheme {
   const AppTheme._();
 
   static ThemeData get light =>
-      _buildTheme(brightness: Brightness.light, colors: AppPalette.light);
+      fromPalette(brightness: Brightness.light, colors: AppPalette.light);
 
   static ThemeData get dark =>
-      _buildTheme(brightness: Brightness.dark, colors: AppPalette.dark);
+      fromPalette(brightness: Brightness.dark, colors: AppPalette.dark);
 
-  static ThemeData _buildTheme({
+  static ThemeData fromPalette({
     required Brightness brightness,
     required AppPalette colors,
   }) {

@@ -11,15 +11,19 @@ class LedgerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
+    return ValueListenableBuilder<AppThemeOption>(
       valueListenable: themeController,
-      builder: (context, themeMode, child) {
+      builder: (context, selectedTheme, child) {
+        final themeData = AppTheme.fromPalette(
+          brightness: selectedTheme.brightness,
+          colors: selectedTheme.palette,
+        );
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Ledger App',
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          themeMode: themeMode,
+          theme: themeData,
+          darkTheme: themeData,
+          themeMode: ThemeMode.light,
           home: child,
         );
       },
