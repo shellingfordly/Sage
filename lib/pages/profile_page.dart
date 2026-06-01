@@ -4,6 +4,7 @@ import '../data/ledger_store.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
+import 'budget_management_page.dart';
 import 'ledger_management_page.dart';
 import 'settings_page.dart';
 
@@ -200,10 +201,17 @@ class _SettingsPanel extends StatelessWidget {
       decoration: AppDecorations.surface(context),
       child: Column(
         children: [
-          const _SettingTile(
+          _SettingTile(
             icon: Icons.savings_outlined,
             title: '预算管理',
             subtitle: '设置每月可用额度',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const BudgetManagementPage(),
+                ),
+              );
+            },
           ),
           const _PanelDivider(),
           const _SettingTile(

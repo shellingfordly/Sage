@@ -14,6 +14,7 @@ class LedgerStore extends ChangeNotifier {
   final LedgerRepository _repository;
   final List<LedgerBook> _ledgers = [];
   final Map<String, List<LedgerRecord>> _recordsByLedger = {};
+  final Map<String, Map<String, double>> _budgetsByLedger = {};
   String? _currentLedgerId;
 
   bool _loaded = false;
@@ -54,6 +55,14 @@ class LedgerStore extends ChangeNotifier {
           ledger.id: List<LedgerRecord>.from(
             snapshot.recordsByLedger[ledger.id] ?? const <LedgerRecord>[],
           )..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+      });
+    _budgetsByLedger
+      ..clear()
+      ..addAll({
+        for (final ledger in _ledgers)
+          ledger.id: Map<String, double>.from(
+            snapshot.budgetsByLedger[ledger.id] ?? const <String, double>{},
+          ),
       });
     final hasCurrent = _ledgers.any((ledger) => ledger.id == snapshot.currentLedgerId);
     _currentLedgerId = hasCurrent ? snapshot.currentLedgerId : _ledgers.first.id;
@@ -130,6 +139,7 @@ class LedgerStore extends ChangeNotifier {
     );
     _ledgers.add(ledger);
     _recordsByLedger[ledger.id] = [];
+    _budgetsByLedger[ledger.id] = {};
     _currentLedgerId = ledger.id;
     await _save();
   }
@@ -171,6 +181,7 @@ class LedgerStore extends ChangeNotifier {
     }
     _ledgers.removeAt(index);
     _recordsByLedger.remove(ledgerId);
+    _budgetsByLedger.remove(ledgerId);
     if (_currentLedgerId == ledgerId) {
       _currentLedgerId = _ledgers.first.id;
     }
@@ -183,6 +194,29 @@ class LedgerStore extends ChangeNotifier {
   }
 
   bool isDefaultLedger(String ledgerId) => ledgerId == defaultLedgerId;
+
+  double monthlyBudgetFor(DateTime month, {String? ledgerId}) {
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    final key = _monthKey(month);
+    return _budgetsByLedger[targetLedgerId]?[key] ?? 0;
+  }
+
+  Future<void> setMonthlyBudget({
+    required DateTime month,
+    required double amount,
+    String? ledgerId,
+  }) async {
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    final monthly = _budgetsByLedger.putIfAbsent(targetLedgerId, () => {});
+    final key = _monthKey(month);
+
+    if (amount <= 0) {
+      monthly.remove(key);
+    } else {
+      monthly[key] = amount;
+    }
+    await _save();
+  }
 
   List<LedgerRecord> recordsForMonth(DateTime month) {
     return _currentRecords
@@ -277,11 +311,20 @@ class LedgerStore extends ChangeNotifier {
           for (final entry in _recordsByLedger.entries)
             entry.key: List<LedgerRecord>.from(entry.value),
         },
+        budgetsByLedger: {
+          for (final entry in _budgetsByLedger.entries)
+            entry.key: Map<String, double>.from(entry.value),
+        },
       ),
     );
     _saving = false;
     notifyListeners();
   }
+}
+
+String _monthKey(DateTime month) {
+  final m = month.month.toString().padLeft(2, '0');
+  return '${month.year}-$m';
 }
 
 bool _isSameMonth(DateTime date, DateTime month) {
