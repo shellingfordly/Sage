@@ -7,11 +7,17 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
+  archive: ^3.6.1
   cupertino_icons: ^1.0.9
+  excel: ^4.0.6
+  file_picker: ^11.0.2
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   flutter_slidable: ^4.0.3
   shared_preferences: ^2.5.5
+  xml: ^6.6.1
 
 dev_dependencies:
   flutter_test:

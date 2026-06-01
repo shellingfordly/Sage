@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../theme/app_styles.dart';
-import '../theme/app_text_styles.dart';
-import '../theme/theme_controller.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_styles.dart';
+import '../../theme/app_text_styles.dart';
+import '../../theme/theme_controller.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/ledger_book.dart';
+import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
 
 class LedgerRepository {
@@ -23,11 +24,15 @@ class LedgerRepository {
     try {
       final decoded = jsonDecode(rawRecords);
       if (decoded is List) {
-        final migratedRecords = decoded
-            .whereType<Map>()
-            .map((item) => LedgerRecord.fromJson(Map<String, Object?>.from(item)))
-            .toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final migratedRecords =
+            decoded
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      LedgerRecord.fromJson(Map<String, Object?>.from(item)),
+                )
+                .toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         return LedgerRepositoryData(
           ledgers: [
             LedgerBook(
@@ -39,6 +44,8 @@ class LedgerRepository {
           currentLedgerId: _defaultLedgerId,
           recordsByLedger: {_defaultLedgerId: migratedRecords},
           budgetsByLedger: const {},
+          categoryBudgetsByLedger: const {},
+          categoriesByLedger: const {},
         );
       }
       if (decoded is! Map) {
@@ -50,11 +57,16 @@ class LedgerRepository {
       final currentLedgerId = payload['currentLedgerId'] as String?;
       final recordsByLedgerRaw = payload['recordsByLedger'];
       final budgetsByLedgerRaw = payload['budgetsByLedger'];
+      final categoryBudgetsByLedgerRaw = payload['categoryBudgetsByLedger'];
+      final categoriesByLedgerRaw = payload['categoriesByLedger'];
 
       final ledgers = ledgersRaw is List
           ? ledgersRaw
                 .whereType<Map>()
-                .map((item) => LedgerBook.fromJson(Map<String, Object?>.from(item)))
+                .map(
+                  (item) =>
+                      LedgerBook.fromJson(Map<String, Object?>.from(item)),
+                )
                 .toList()
           : <LedgerBook>[];
 
@@ -64,11 +76,16 @@ class LedgerRepository {
           final key = entry.key.toString();
           final value = entry.value;
           if (value is List) {
-            final records = value
-                .whereType<Map>()
-                .map((item) => LedgerRecord.fromJson(Map<String, Object?>.from(item)))
-                .toList()
-              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            final records =
+                value
+                    .whereType<Map>()
+                    .map(
+                      (item) => LedgerRecord.fromJson(
+                        Map<String, Object?>.from(item),
+                      ),
+                    )
+                    .toList()
+                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
             recordsByLedger[key] = records;
           }
         }
@@ -93,6 +110,58 @@ class LedgerRepository {
         }
       }
 
+      final categoriesByLedger = <String, List<LedgerCategory>>{};
+      if (categoriesByLedgerRaw is Map) {
+        for (final entry in categoriesByLedgerRaw.entries) {
+          final ledgerId = entry.key.toString();
+          final value = entry.value;
+          if (value is List) {
+            categoriesByLedger[ledgerId] = value
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      LedgerCategory.fromJson(Map<String, Object?>.from(item)),
+                )
+                .toList();
+          }
+        }
+      }
+
+      final categoryBudgetsByLedger =
+          <String, Map<String, Map<String, double>>>{};
+      if (categoryBudgetsByLedgerRaw is Map) {
+        for (final ledgerEntry in categoryBudgetsByLedgerRaw.entries) {
+          final ledgerId = ledgerEntry.key.toString();
+          final rawMonthly = ledgerEntry.value;
+          if (rawMonthly is! Map) {
+            continue;
+          }
+          final monthly = <String, Map<String, double>>{};
+          for (final monthEntry in rawMonthly.entries) {
+            final monthKey = monthEntry.key.toString();
+            final rawCategoryMap = monthEntry.value;
+            if (rawCategoryMap is! Map) {
+              continue;
+            }
+            final categoryMap = <String, double>{};
+            for (final categoryEntry in rawCategoryMap.entries) {
+              final categoryName = categoryEntry.key.toString().trim();
+              final amountRaw = categoryEntry.value;
+              if (categoryName.isEmpty || amountRaw is! num || amountRaw <= 0) {
+                continue;
+              }
+              categoryMap[categoryName] = amountRaw.toDouble();
+            }
+            if (categoryMap.isNotEmpty) {
+              monthly[monthKey] = categoryMap;
+            }
+          }
+          if (monthly.isNotEmpty) {
+            categoryBudgetsByLedger[ledgerId] = monthly;
+          }
+        }
+      }
+
       if (ledgers.isEmpty) {
         return LedgerRepositoryData.empty();
       }
@@ -103,6 +172,8 @@ class LedgerRepository {
         currentLedgerId: currentLedgerId ?? fallbackLedgerId,
         recordsByLedger: recordsByLedger,
         budgetsByLedger: budgetsByLedger,
+        categoryBudgetsByLedger: categoryBudgetsByLedger,
+        categoriesByLedger: categoriesByLedger,
       );
     } on FormatException {
       return LedgerRepositoryData.empty();
@@ -112,20 +183,29 @@ class LedgerRepository {
   }
 
   Future<void> saveData(LedgerRepositoryData data) {
-    final encoded = jsonEncode(
-      {
-        'ledgers': data.ledgers.map((ledger) => ledger.toJson()).toList(),
-        'currentLedgerId': data.currentLedgerId,
-        'recordsByLedger': {
-          for (final entry in data.recordsByLedger.entries)
-            entry.key: entry.value.map((record) => record.toJson()).toList(),
-        },
-        'budgetsByLedger': {
-          for (final entry in data.budgetsByLedger.entries)
-            entry.key: entry.value,
-        },
+    final encoded = jsonEncode({
+      'ledgers': data.ledgers.map((ledger) => ledger.toJson()).toList(),
+      'currentLedgerId': data.currentLedgerId,
+      'recordsByLedger': {
+        for (final entry in data.recordsByLedger.entries)
+          entry.key: entry.value.map((record) => record.toJson()).toList(),
       },
-    );
+      'budgetsByLedger': {
+        for (final entry in data.budgetsByLedger.entries)
+          entry.key: entry.value,
+      },
+      'categoryBudgetsByLedger': {
+        for (final entry in data.categoryBudgetsByLedger.entries)
+          entry.key: {
+            for (final monthEntry in entry.value.entries)
+              monthEntry.key: monthEntry.value,
+          },
+      },
+      'categoriesByLedger': {
+        for (final entry in data.categoriesByLedger.entries)
+          entry.key: entry.value.map((category) => category.toJson()).toList(),
+      },
+    });
     return _preferences.setString(_recordsKey, encoded);
   }
 }
@@ -136,12 +216,16 @@ class LedgerRepositoryData {
     required this.currentLedgerId,
     required this.recordsByLedger,
     required this.budgetsByLedger,
+    required this.categoryBudgetsByLedger,
+    required this.categoriesByLedger,
   });
 
   final List<LedgerBook> ledgers;
   final String currentLedgerId;
   final Map<String, List<LedgerRecord>> recordsByLedger;
   final Map<String, Map<String, double>> budgetsByLedger;
+  final Map<String, Map<String, Map<String, double>>> categoryBudgetsByLedger;
+  final Map<String, List<LedgerCategory>> categoriesByLedger;
 
   factory LedgerRepositoryData.empty() {
     final defaultLedger = LedgerBook(
@@ -154,6 +238,8 @@ class LedgerRepositoryData {
       currentLedgerId: defaultLedger.id,
       recordsByLedger: {defaultLedger.id: const <LedgerRecord>[]},
       budgetsByLedger: const {},
+      categoryBudgetsByLedger: const {},
+      categoriesByLedger: const {},
     );
   }
 }

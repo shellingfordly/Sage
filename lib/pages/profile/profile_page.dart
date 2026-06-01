@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../data/ledger_store.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_styles.dart';
-import '../theme/app_text_styles.dart';
+import '../../data/ledger_store.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_styles.dart';
+import '../../theme/app_text_styles.dart';
+import '../../utils/ledger_formatters.dart';
 import 'budget_management_page.dart';
+import 'category_management_page.dart';
+import 'data_backup_page.dart';
 import 'ledger_management_page.dart';
 import 'settings_page.dart';
 
@@ -127,6 +130,9 @@ class _ProfileStats extends StatelessWidget {
     return AnimatedBuilder(
       animation: ledgerStore,
       builder: (context, child) {
+        final currentMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+        final budget = ledgerStore.monthlyBudgetFor(currentMonth);
+        final budgetText = budget > 0 ? formatCurrency(budget) : '未设置';
         final categories = ledgerStore.records
             .map((record) => record.category)
             .toSet();
@@ -140,8 +146,8 @@ class _ProfileStats extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
-              child: _StatTile(label: '预算', value: '¥ 6,000'),
+            Expanded(
+              child: _StatTile(label: '预算', value: budgetText),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -214,10 +220,17 @@ class _SettingsPanel extends StatelessWidget {
             },
           ),
           const _PanelDivider(),
-          const _SettingTile(
+          _SettingTile(
             icon: Icons.category_outlined,
             title: '分类管理',
             subtitle: '调整收入和支出分类',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const CategoryManagementPage(),
+                ),
+              );
+            },
           ),
           const _PanelDivider(),
           _SettingTile(
@@ -248,10 +261,17 @@ class _AppPanel extends StatelessWidget {
       decoration: AppDecorations.surface(context),
       child: Column(
         children: [
-          const _SettingTile(
+          _SettingTile(
             icon: Icons.cloud_upload_outlined,
             title: '数据备份',
             subtitle: '最近备份：今天 10:24',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const DataBackupPage(),
+                ),
+              );
+            },
           ),
           const _PanelDivider(),
           _SettingTile(

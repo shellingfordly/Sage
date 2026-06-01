@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../data/ledger_store.dart';
+import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
-
-const expenseCategories = ['餐饮', '交通', '购物', '居住', '娱乐', '医疗', '学习', '其他'];
-const incomeCategories = ['工资', '奖金', '理财', '兼职', '其他'];
 
 Future<void> showAddRecordSheet(
   BuildContext context, {
@@ -73,9 +71,9 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
     }
 
     _type = widget.initialType;
-    _category = _categoriesFor(_type).contains(widget.initialCategory)
+    _category = _categoriesFor(_type).map((item) => item.name).contains(widget.initialCategory)
         ? widget.initialCategory!
-        : _categoriesFor(_type).first;
+        : _categoriesFor(_type).first.name;
   }
 
   @override
@@ -140,9 +138,9 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
                         final nextCategories = _categoriesFor(nextType);
                         setState(() {
                           _type = nextType;
-                          _category = nextCategories.contains(_category)
+                          _category = nextCategories.map((item) => item.name).contains(_category)
                               ? _category
-                              : nextCategories.first;
+                              : nextCategories.first.name;
                         });
                       },
               ),
@@ -193,7 +191,16 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
                 ),
                 items: [
                   for (final category in _categoriesFor(_type))
-                    DropdownMenuItem(value: category, child: Text(category)),
+                    DropdownMenuItem(
+                      value: category.name,
+                      child: Row(
+                        children: [
+                          Icon(categoryIconForKey(category.iconKey), size: 18),
+                          const SizedBox(width: 8),
+                          Text(category.name),
+                        ],
+                      ),
+                    ),
                 ],
                 onChanged: _saving
                     ? null
@@ -290,6 +297,6 @@ class _AddRecordSheetState extends State<AddRecordSheet> {
   }
 }
 
-List<String> _categoriesFor(LedgerRecordType type) {
-  return type == LedgerRecordType.income ? incomeCategories : expenseCategories;
+List<LedgerCategory> _categoriesFor(LedgerRecordType type) {
+  return ledgerStore.categoriesForType(type);
 }

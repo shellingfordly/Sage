@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
-import '../data/ledger_store.dart';
-import '../models/ledger_book.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_styles.dart';
-import '../theme/app_text_styles.dart';
+import '../../data/ledger_store.dart';
+import '../../models/ledger_book.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_styles.dart';
+import '../../theme/app_text_styles.dart';
 
 class LedgerManagementPage extends StatelessWidget {
   const LedgerManagementPage({super.key});

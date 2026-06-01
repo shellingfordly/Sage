@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../ai/models/ai_insight_models.dart';
+import '../ai/services/ai_insight_cache.dart';
+import '../ai/services/ai_insight_engine.dart';
+import '../ai/services/ai_home_alert_service.dart';
 import '../data/ledger_store.dart';
 import '../models/ledger_record.dart';
 import '../theme/app_colors.dart';
@@ -9,8 +13,14 @@ import '../theme/app_text_styles.dart';
 import '../utils/ledger_formatters.dart';
 import '../widgets/add_record_sheet.dart';
 
+const _aiInsightEngine = AiInsightEngine();
+const _aiHomeAlertService = AiHomeAlertService();
+final _aiInsightCache = AiInsightCache();
+
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.onOpenAiPage});
+
+  final VoidCallback onOpenAiPage;
 
   @override
   Widget build(BuildContext context) {
@@ -21,8 +31,23 @@ class HomePage extends StatelessWidget {
         final previousMonth = DateTime(now.year, now.month - 1);
         final income = ledgerStore.incomeForMonth(now);
         final expense = ledgerStore.expenseForMonth(now);
+        final budget = ledgerStore.monthlyBudgetFor(now);
         final balance = income - expense;
         final previousBalance = ledgerStore.balanceForMonth(previousMonth);
+        final aiSnapshot = _aiInsightCache.getOrBuild(
+          ledgerId: ledgerStore.currentLedger.id,
+          records: ledgerStore.records,
+          monthlyBudget: budget,
+          mode: AiSuggestionMode.balanced,
+          now: now,
+          builder: () => _aiInsightEngine.buildSnapshot(
+            records: ledgerStore.records,
+            monthlyBudget: budget,
+            mode: AiSuggestionMode.balanced,
+            now: now,
+          ),
+        );
+        final alert = _aiHomeAlertService.evaluate(aiSnapshot);
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -38,6 +63,12 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _MonthlySummary(income: income, expense: expense),
+                const SizedBox(height: 16),
+                _BudgetProgressCard(budget: budget, expense: expense),
+                if (alert.show) ...[
+                  const SizedBox(height: 16),
+                  _AiAlertCard(alert: alert, onTap: onOpenAiPage),
+                ],
                 const SizedBox(height: 28),
                 const _SectionTitle(title: '快捷记账'),
                 const SizedBox(height: 12),
@@ -51,6 +82,44 @@ class HomePage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _AiAlertCard extends StatelessWidget {
+  const _AiAlertCard({required this.alert, required this.onTap});
+
+  final AiHomeAlert alert;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final warningText = <String>[
+      if (alert.hasBudgetWarning) '预算预警',
+      if (alert.hasAnomaly) '异常消费 ${alert.anomalyCount} 条',
+    ].join(' · ');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: AppDecorations.surface(context),
+      child: Row(
+        children: [
+          Icon(Icons.notification_important_outlined, color: colors.danger),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('AI 风险提醒', style: AppTextStyles.bodyStrong(context)),
+                const SizedBox(height: 4),
+                Text(warningText, style: AppTextStyles.bodyMuted(context)),
+              ],
+            ),
+          ),
+          TextButton(onPressed: onTap, child: const Text('查看')),
+        ],
+      ),
     );
   }
 }
@@ -225,44 +294,122 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _BudgetProgressCard extends StatelessWidget {
+  const _BudgetProgressCard({required this.budget, required this.expense});
+
+  final double budget;
+  final double expense;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final hasBudget = budget > 0;
+    final remaining = hasBudget ? (budget - expense) : 0.0;
+    final progress = hasBudget
+        ? (expense / budget).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    final overBudget = hasBudget && expense > budget;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: AppDecorations.surface(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.savings_outlined,
+                color: overBudget ? colors.danger : colors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text('本月预算', style: AppTextStyles.bodyStrong(context)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!hasBudget)
+            Text(
+              '暂未设置预算，请到“我的 - 预算管理”中设置',
+              style: AppTextStyles.bodyMuted(context),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '已支出 ${formatCurrency(expense)}',
+                    style: AppTextStyles.bodyMuted(context),
+                  ),
+                ),
+                Text(
+                  overBudget
+                      ? '已超支 ${formatCurrency(expense - budget)}'
+                      : '剩余 ${formatCurrency(remaining)}',
+                  style: overBudget
+                      ? AppTextStyles.amount(context, colors.danger)
+                      : AppTextStyles.amount(context, colors.primary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: colors.softFill,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  overBudget ? colors.danger : colors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '预算 ${formatCurrency(budget)}',
+              style: AppTextStyles.labelMuted(context),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 4,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 0.78,
-      children: const [
-        _QuickAction(
-          icon: Icons.restaurant_outlined,
-          label: '餐饮',
-          type: LedgerRecordType.expense,
-          category: '餐饮',
-        ),
-        _QuickAction(
-          icon: Icons.directions_bus_outlined,
-          label: '交通',
-          type: LedgerRecordType.expense,
-          category: '交通',
-        ),
-        _QuickAction(
-          icon: Icons.shopping_bag_outlined,
-          label: '购物',
-          type: LedgerRecordType.expense,
-          category: '购物',
-        ),
-        _QuickAction(
-          icon: Icons.payments_outlined,
-          label: '工资',
-          type: LedgerRecordType.income,
-          category: '工资',
-        ),
-      ],
+    return AnimatedBuilder(
+      animation: ledgerStore,
+      builder: (context, child) {
+        final expenseCategories = ledgerStore
+            .categoriesForType(LedgerRecordType.expense)
+            .take(4)
+            .toList();
+        return GridView.count(
+          crossAxisCount: 4,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 0.78,
+          children: [
+            for (final category in expenseCategories)
+              _QuickAction(
+                icon: ledgerStore.categoryIconFor(
+                  category.name,
+                  LedgerRecordType.expense,
+                ),
+                label: category.name,
+                type: LedgerRecordType.expense,
+                category: category.name,
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -384,7 +531,7 @@ class _RecordTile extends StatelessWidget {
             height: 40,
             decoration: AppDecorations.softFill(context),
             child: Icon(
-              iconForCategory(record.category, record.type),
+              ledgerStore.categoryIconFor(record.category, record.type),
               color: colors.textBody,
               size: 22,
             ),
@@ -440,7 +587,8 @@ class _RecordSlidable extends StatelessWidget {
         extentRatio: 0.48,
         children: [
           SlidableAction(
-            onPressed: (_) => showAddRecordSheet(context, editingRecord: record),
+            onPressed: (_) =>
+                showAddRecordSheet(context, editingRecord: record),
             backgroundColor: colors.info,
             foregroundColor: colors.onStrong,
             icon: Icons.edit_outlined,
