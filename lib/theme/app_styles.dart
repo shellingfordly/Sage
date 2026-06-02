@@ -28,10 +28,42 @@ class AppDecorations {
 
   static BoxDecoration strongSurface(BuildContext context) {
     final colors = context.colors;
+
+    if (colors.isPureBlackTheme) {
+      return BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadii.card,
+        border: Border.all(
+          color: colors.surfaceBorder.withValues(alpha: 0.65),
+        ),
+      );
+    }
+
     final isLightTheme = Theme.of(context).brightness == Brightness.light;
-    final leadingTint = isLightTheme ? 0.52 : 0.18;
-    final trailingTint = isLightTheme ? 0.34 : 0.06;
-    final borderAlpha = isLightTheme ? 0.5 : 0.35;
+    if (isLightTheme) {
+      final gradientStart = Color.alphaBlend(
+        colors.primary.withValues(alpha: 0.10),
+        colors.surface,
+      );
+      final gradientEnd = Color.alphaBlend(
+        colors.primary.withValues(alpha: 0.50),
+        colors.surface,
+      );
+
+      return BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [gradientStart, gradientEnd],
+        ),
+        borderRadius: AppRadii.card,
+        border: Border.all(color: colors.primary.withValues(alpha: 0.16)),
+      );
+    }
+
+    final leadingTint = 0.18;
+    final trailingTint = 0.06;
+    final borderAlpha = 0.35;
     final leading = Color.alphaBlend(
       colors.primary.withValues(alpha: leadingTint),
       colors.strongSurface,
@@ -50,6 +82,41 @@ class AppDecorations {
       borderRadius: AppRadii.card,
       border: Border.all(color: colors.surfaceBorder.withValues(alpha: borderAlpha)),
     );
+  }
+
+  /// 强调卡片在浅色 / 深色模式下使用不同的前景色。
+  static bool usesLightStrongSurface(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.light &&
+        !context.colors.isPureBlackTheme;
+  }
+
+  static Color strongSurfaceForeground(BuildContext context) {
+    final colors = context.colors;
+    return usesLightStrongSurface(context) ? colors.textPrimary : colors.onStrong;
+  }
+
+  static Color strongSurfaceForegroundMuted(BuildContext context) {
+    final colors = context.colors;
+    return usesLightStrongSurface(context)
+        ? colors.textSecondary
+        : colors.onStrongMuted;
+  }
+
+  static Color strongSurfaceAccent(BuildContext context) {
+    final colors = context.colors;
+    return usesLightStrongSurface(context) ? colors.primary : colors.positiveText;
+  }
+
+  static Color strongSurfaceIconBackground(BuildContext context) {
+    final colors = context.colors;
+    return usesLightStrongSurface(context)
+        ? colors.primarySoft
+        : colors.overlayOnStrong;
+  }
+
+  static Color strongSurfaceIconForeground(BuildContext context) {
+    final colors = context.colors;
+    return usesLightStrongSurface(context) ? colors.primary : colors.onStrong;
   }
 
   static BoxDecoration softFill(BuildContext context) {

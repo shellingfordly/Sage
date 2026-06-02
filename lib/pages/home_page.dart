@@ -204,8 +204,6 @@ class _BalancePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -219,12 +217,12 @@ class _BalancePanel extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: colors.overlayOnStrong,
+                  color: AppDecorations.strongSurfaceIconBackground(context),
                   borderRadius: AppRadii.card,
                 ),
                 child: Icon(
                   Icons.account_balance_wallet_outlined,
-                  color: colors.onStrong,
+                  color: AppDecorations.strongSurfaceIconForeground(context),
                   size: 20,
                 ),
               ),

@@ -99,7 +99,7 @@ class _AccountCard extends StatelessWidget {
                     Text(
                       ledgerStore.currentLedger.name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colors.onStrong,
+                        color: AppDecorations.strongSurfaceForeground(context),
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0,
                       ),
@@ -112,7 +112,11 @@ class _AccountCard extends StatelessWidget {
               IconButton(
                 onPressed: () => _showRenameCurrentLedgerDialog(context),
                 tooltip: '编辑账本',
-                icon: Icon(Icons.edit_outlined, color: colors.positiveText, size: 22),
+                icon: Icon(
+                  Icons.edit_outlined,
+                  color: AppDecorations.strongSurfaceAccent(context),
+                  size: 22,
+                ),
               ),
             ],
           ),

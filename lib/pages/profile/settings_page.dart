@@ -18,12 +18,80 @@ class SettingsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
+              _DarkModePanel(),
+              SizedBox(height: 20),
               _SectionTitle(title: '外观'),
               SizedBox(height: 12),
               _ThemePanel(),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DarkModePanel extends StatelessWidget {
+  const _DarkModePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: AppDecorations.surface(context),
+      child: ValueListenableBuilder<AppThemeOption>(
+        valueListenable: themeController,
+        builder: (context, _, child) {
+          final colors = context.colors;
+          final isDarkMode = themeController.isDarkMode;
+
+          return Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: AppDecorations.softFill(context),
+                  child: Icon(
+                    isDarkMode
+                        ? Icons.dark_mode_outlined
+                        : Icons.light_mode_outlined,
+                    color: colors.primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '黑暗模式',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyStrong(context),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        isDarkMode ? '已开启' : '已关闭',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyMuted(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch.adaptive(
+                  value: isDarkMode,
+                  activeThumbColor: colors.onStrong,
+                  activeTrackColor: colors.primary,
+                  onChanged: themeController.setDarkMode,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -42,9 +110,13 @@ class _ThemePanel extends StatelessWidget {
         builder: (context, selectedTheme, child) {
           return Column(
             children: [
-              _ThemeCurrentTile(selectedTheme: selectedTheme),
+              _ThemeCurrentTile(
+                colorFamily: themeController.currentColorFamilyOption,
+              ),
               const _PanelDivider(),
-              _ThemeSelectorGrid(selectedTheme: selectedTheme),
+              _ThemeSelectorGrid(
+                selectedFamily: themeController.colorFamily,
+              ),
             ],
           );
         },
@@ -54,9 +126,9 @@ class _ThemePanel extends StatelessWidget {
 }
 
 class _ThemeCurrentTile extends StatelessWidget {
-  const _ThemeCurrentTile({required this.selectedTheme});
+  const _ThemeCurrentTile({required this.colorFamily});
 
-  final AppThemeOption selectedTheme;
+  final AppColorFamilyOption colorFamily;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +161,7 @@ class _ThemeCurrentTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '当前：${selectedTheme.name}',
+                  '当前：${colorFamily.name}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.bodyMuted(context),
@@ -104,9 +176,9 @@ class _ThemeCurrentTile extends StatelessWidget {
 }
 
 class _ThemeSelectorGrid extends StatelessWidget {
-  const _ThemeSelectorGrid({required this.selectedTheme});
+  const _ThemeSelectorGrid({required this.selectedFamily});
 
-  final AppThemeOption selectedTheme;
+  final AppColorFamily selectedFamily;
 
   @override
   Widget build(BuildContext context) {
@@ -116,11 +188,11 @@ class _ThemeSelectorGrid extends StatelessWidget {
         spacing: 10,
         runSpacing: 10,
         children: [
-          for (final option in themeController.availableThemes)
+          for (final option in themeController.availableColorFamilies)
             _ThemeOptionTile(
               option: option,
-              selected: option.id == selectedTheme.id,
-              onTap: () => themeController.setTheme(option),
+              selected: option.family == selectedFamily,
+              onTap: () => themeController.setColorFamily(option.family),
             ),
         ],
       ),
@@ -135,13 +207,16 @@ class _ThemeOptionTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final AppThemeOption option;
+  final AppColorFamilyOption option;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final needsBorder =
+        option.previewColor.computeLuminance() > 0.92 ||
+        option.previewColor.computeLuminance() < 0.08;
 
     return GestureDetector(
       onTap: onTap,
@@ -166,9 +241,7 @@ class _ThemeOptionTile extends StatelessWidget {
                 color: option.previewColor,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: option.brightness == Brightness.light
-                      ? colors.surfaceBorder
-                      : Colors.transparent,
+                  color: needsBorder ? colors.surfaceBorder : Colors.transparent,
                 ),
               ),
             ),

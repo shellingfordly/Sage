@@ -4,137 +4,203 @@ import 'app_colors.dart';
 
 final themeController = ThemeController();
 
-class AppThemeOption {
-  const AppThemeOption({
-    required this.id,
+const _cyanAccent = Color(0xFF2F8F83);
+const _blueAccent = Color(0xFFAED6F1);
+const _pinkAccent = Color(0xFFE6B0AA);
+const _redAccent = Color(0xFFA93226);
+const _greenAccent = Color(0xFF76D7C4);
+const _yellowAccent = Color(0xFFF9E79F);
+const _orangeAccent = Color(0xFFFF6600);
+
+enum AppColorFamily {
+  white,
+  cyan,
+  blue,
+  pink,
+  red,
+  green,
+  yellow,
+  orange,
+}
+
+class AppColorFamilyOption {
+  const AppColorFamilyOption({
+    required this.family,
     required this.name,
-    required this.brightness,
-    required this.palette,
     required this.previewColor,
   });
 
-  final String id;
+  final AppColorFamily family;
   final String name;
-  final Brightness brightness;
-  final AppPalette palette;
   final Color previewColor;
 }
 
+class AppThemeOption {
+  const AppThemeOption({
+    required this.brightness,
+    required this.palette,
+  });
+
+  final Brightness brightness;
+  final AppPalette palette;
+}
+
 class ThemeController extends ValueNotifier<AppThemeOption> {
-  ThemeController() : super(_defaultTheme);
+  ThemeController()
+    : _isDarkMode = true,
+      _colorFamily = AppColorFamily.cyan,
+      super(_buildTheme(isDarkMode: true, family: AppColorFamily.cyan));
 
-  static const _defaultThemeId = 'black';
-  static final _defaultTheme = themes.firstWhere(
-    (option) => option.id == _defaultThemeId,
-  );
+  bool _isDarkMode;
+  AppColorFamily _colorFamily;
 
-  static final List<AppThemeOption> themes = [
-    const AppThemeOption(
-      id: 'black',
-      name: '黑色',
-      brightness: Brightness.dark,
-      palette: AppPalette.dark,
-      previewColor: Color(0xFF1A211F),
-    ),
-    const AppThemeOption(
-      id: 'white',
-      name: '白色',
-      brightness: Brightness.light,
-      palette: AppPalette.light,
+  static const List<AppColorFamilyOption> colorFamilies = [
+    AppColorFamilyOption(
+      family: AppColorFamily.white,
+      name: '白',
       previewColor: Color(0xFFFFFFFF),
     ),
-    AppThemeOption(
-      id: 'blue',
-      name: '蓝色',
-      brightness: Brightness.light,
-      palette: _paletteFromSeed(
-        seed: const Color(0xFF3B82F6),
-        brightness: Brightness.light,
-      ),
-      previewColor: const Color(0xFF3B82F6),
+    AppColorFamilyOption(
+      family: AppColorFamily.cyan,
+      name: '青',
+      previewColor: _cyanAccent,
     ),
-    AppThemeOption(
-      id: 'pink',
-      name: '粉色',
-      brightness: Brightness.light,
-      palette: _paletteFromSeed(
-        seed: const Color(0xFFEC4899),
-        brightness: Brightness.light,
-      ),
-      previewColor: const Color(0xFFEC4899),
+    AppColorFamilyOption(
+      family: AppColorFamily.blue,
+      name: '蓝',
+      previewColor: _blueAccent,
     ),
-    AppThemeOption(
-      id: 'yellow',
-      name: '黄色',
-      brightness: Brightness.light,
-      palette: _paletteFromSeed(
-        seed: const Color(0xFFF59E0B),
-        brightness: Brightness.light,
-      ),
-      previewColor: const Color(0xFFF59E0B),
+    AppColorFamilyOption(
+      family: AppColorFamily.pink,
+      name: '粉',
+      previewColor: _pinkAccent,
     ),
-    AppThemeOption(
-      id: 'green',
-      name: '绿色',
-      brightness: Brightness.light,
-      palette: _paletteFromSeed(
-        seed: const Color(0xFF22C55E),
-        brightness: Brightness.light,
-      ),
-      previewColor: const Color(0xFF22C55E),
+    AppColorFamilyOption(
+      family: AppColorFamily.red,
+      name: '红',
+      previewColor: _redAccent,
     ),
-    AppThemeOption(
-      id: 'red',
-      name: '红色',
-      brightness: Brightness.light,
-      palette: _paletteFromSeed(
-        seed: const Color(0xFFEF4444),
-        brightness: Brightness.light,
-      ),
-      previewColor: const Color(0xFFEF4444),
+    AppColorFamilyOption(
+      family: AppColorFamily.green,
+      name: '绿',
+      previewColor: _greenAccent,
+    ),
+    AppColorFamilyOption(
+      family: AppColorFamily.yellow,
+      name: '黄',
+      previewColor: _yellowAccent,
+    ),
+    AppColorFamilyOption(
+      family: AppColorFamily.orange,
+      name: '橙',
+      previewColor: _orangeAccent,
     ),
   ];
 
-  List<AppThemeOption> get availableThemes => themes;
+  List<AppColorFamilyOption> get availableColorFamilies => colorFamilies;
 
-  bool get isDarkMode => value.brightness == Brightness.dark;
+  bool get isDarkMode => _isDarkMode;
 
-  void setTheme(AppThemeOption option) {
-    if (option.id == value.id) {
-      return;
-    }
-    value = option;
-  }
+  AppColorFamily get colorFamily => _colorFamily;
 
-  void setThemeById(String themeId) {
-    for (final option in themes) {
-      if (option.id == themeId) {
-        setTheme(option);
-        return;
-      }
-    }
+  AppColorFamilyOption get currentColorFamilyOption {
+    return colorFamilies.firstWhere((option) => option.family == _colorFamily);
   }
 
   void setDarkMode(bool enabled) {
-    setThemeById(enabled ? 'black' : 'white');
+    if (_isDarkMode == enabled) {
+      return;
+    }
+    _isDarkMode = enabled;
+    value = _buildTheme(isDarkMode: _isDarkMode, family: _colorFamily);
+  }
+
+  void setColorFamily(AppColorFamily family) {
+    if (_colorFamily == family) {
+      return;
+    }
+    _colorFamily = family;
+    value = _buildTheme(isDarkMode: _isDarkMode, family: _colorFamily);
+  }
+
+  static AppThemeOption _buildTheme({
+    required bool isDarkMode,
+    required AppColorFamily family,
+  }) {
+    return AppThemeOption(
+      brightness: isDarkMode ? Brightness.dark : Brightness.light,
+      palette: _buildPalette(isDarkMode: isDarkMode, family: family),
+    );
+  }
+
+  static AppPalette _buildPalette({
+    required bool isDarkMode,
+    required AppColorFamily family,
+  }) {
+    if (isDarkMode) {
+      return switch (family) {
+        AppColorFamily.white => AppPalette.pureBlack,
+        AppColorFamily.cyan => AppPalette.dark,
+        AppColorFamily.blue => _darkPaletteFromAccent(_blueAccent),
+        AppColorFamily.pink => _darkPaletteFromAccent(_pinkAccent),
+        AppColorFamily.red => _darkPaletteFromAccent(_redAccent),
+        AppColorFamily.green => _darkPaletteFromAccent(_greenAccent),
+        AppColorFamily.yellow => _darkPaletteFromAccent(_yellowAccent),
+        AppColorFamily.orange => _darkPaletteFromAccent(_orangeAccent),
+      };
+    }
+
+    return switch (family) {
+      AppColorFamily.white => AppPalette.pureWhite,
+      AppColorFamily.cyan => AppPalette.light,
+      AppColorFamily.blue => _lightPaletteFromAccent(_blueAccent),
+      AppColorFamily.pink => _lightPaletteFromAccent(_pinkAccent),
+      AppColorFamily.red => _lightPaletteFromAccent(_redAccent),
+      AppColorFamily.green => _lightPaletteFromAccent(_greenAccent),
+      AppColorFamily.yellow => _lightPaletteFromAccent(_yellowAccent),
+      AppColorFamily.orange => _lightPaletteFromAccent(_orangeAccent),
+    };
   }
 }
 
-AppPalette _paletteFromSeed({
-  required Color seed,
-  required Brightness brightness,
-}) {
-  final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
-  final isDark = brightness == Brightness.dark;
-  final base = isDark ? AppPalette.dark : AppPalette.light;
-  final softAlpha = isDark ? 0.38 : 0.22;
-  final navigationAlpha = isDark ? 0.42 : 0.28;
+AppPalette _lightPaletteFromAccent(Color seed) {
+  const base = AppPalette.light;
+  const softAlpha = 0.22;
+  const navigationAlpha = 0.28;
 
   return base.copyWith(
-    primary: scheme.primary,
-    primarySoft: scheme.primary.withValues(alpha: softAlpha),
-    info: scheme.secondary,
-    navigationIndicator: scheme.primary.withValues(alpha: navigationAlpha),
-    chevron: Color.lerp(base.chevron, scheme.primary, 0.25),
+    primary: seed,
+    primarySoft: seed.withValues(alpha: softAlpha),
+    info: seed,
+    navigationIndicator: seed.withValues(alpha: navigationAlpha),
+    chevron: Color.lerp(base.chevron, seed, 0.25),
+  );
+}
+
+AppPalette _darkPaletteFromAccent(Color seed) {
+  const pageBackground = Color(0xFF0A0A0A);
+  const surface = Color(0xFF141414);
+  const surfaceBorder = Color(0xFF262626);
+  const softFill = Color(0xFF1C1C1C);
+  const divider = Color(0xFF222222);
+  const strongSurface = Color(0xFF050505);
+
+  return AppPalette.pureBlack.copyWith(
+    flatStrongSurface: false,
+    primary: seed,
+    primarySoft: Color.alphaBlend(
+      seed.withValues(alpha: 0.38),
+      surface,
+    ),
+    info: seed,
+    pageBackground: Color.lerp(pageBackground, seed, 0.04)!,
+    surface: Color.lerp(surface, seed, 0.06)!,
+    surfaceBorder: Color.lerp(surfaceBorder, seed, 0.08)!,
+    softFill: Color.lerp(softFill, seed, 0.06)!,
+    divider: Color.lerp(divider, seed, 0.05)!,
+    strongSurface: Color.lerp(strongSurface, seed, 0.03)!,
+    positiveText: seed,
+    navigationIndicator: seed.withValues(alpha: 0.35),
+    chevron: Color.lerp(const Color(0xFF707070), seed, 0.22)!,
   );
 }

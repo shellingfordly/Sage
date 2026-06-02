@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_styles.dart';
 
 class AppTextStyles {
   const AppTextStyles._();
@@ -68,14 +69,14 @@ class AppTextStyles {
 
   static TextStyle cardLabel(BuildContext context) {
     return Theme.of(context).textTheme.bodyMedium!.copyWith(
-      color: context.colors.onStrongMuted,
+      color: AppDecorations.strongSurfaceForegroundMuted(context),
       letterSpacing: 0,
     );
   }
 
   static TextStyle cardDisplay(BuildContext context) {
     return Theme.of(context).textTheme.displaySmall!.copyWith(
-      color: context.colors.onStrong,
+      color: AppDecorations.strongSurfaceForeground(context),
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
     );
@@ -83,7 +84,7 @@ class AppTextStyles {
 
   static TextStyle cardPositive(BuildContext context) {
     return Theme.of(context).textTheme.bodyMedium!.copyWith(
-      color: context.colors.positiveText,
+      color: AppDecorations.strongSurfaceAccent(context),
       letterSpacing: 0,
     );
   }
