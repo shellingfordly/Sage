@@ -29,8 +29,74 @@ String formatRecordAmount(LedgerRecord record) {
   return formatCurrency(amount, signed: true);
 }
 
-String formatMonthTitle(DateTime date) {
-  return '${date.month}月账本';
+String formatMonthTitle(DateTime date, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  if (date.year == current.year) {
+    return '${date.month}月账本';
+  }
+  return '${date.year}年${date.month}月账本';
+}
+
+DateTime monthStart(DateTime date) => DateTime(date.year, date.month, 1);
+
+DateTime monthReferenceDate(DateTime month, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  if (monthStart(month) == monthStart(current)) {
+    return current;
+  }
+  return DateTime(month.year, month.month + 1, 0);
+}
+
+bool isCurrentMonth(DateTime month, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  return month.year == current.year && month.month == current.month;
+}
+
+String monthBillSectionTitle(DateTime month, {DateTime? now}) {
+  if (isCurrentMonth(month, now: now)) {
+    return '本月账单';
+  }
+  return '${month.month}月账单';
+}
+
+String monthBalanceLabel(DateTime month, {DateTime? now}) {
+  if (isCurrentMonth(month, now: now)) {
+    return '本月结余';
+  }
+  return '${month.month}月结余';
+}
+
+String monthBudgetLabel(DateTime month, {DateTime? now}) {
+  if (isCurrentMonth(month, now: now)) {
+    return '本月预算';
+  }
+  return '${month.month}月预算';
+}
+
+String homeSubtitleForMonth(DateTime month, {DateTime? now}) {
+  return '查看${month.month}月账单与预算情况';
+}
+
+String formatAiAnalysisTitle(DateTime month, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  if (month.year == current.year) {
+    return '${month.month}月 AI 分析';
+  }
+  return '${month.year}年${month.month}月 AI 分析';
+}
+
+String aiAnalysisSubtitleForMonth(DateTime month, {DateTime? now}) {
+  if (isCurrentMonth(month, now: now)) {
+    return '预算预警、异常消费与优化建议';
+  }
+  return '查看该月预算预警、异常消费与优化建议';
+}
+
+String monthOverviewLabel(DateTime month, {DateTime? now}) {
+  if (isCurrentMonth(month, now: now)) {
+    return '本月概览';
+  }
+  return '${month.month}月概览';
 }
 
 String formatRecordDate(DateTime date, {DateTime? now}) {

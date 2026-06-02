@@ -10,7 +10,9 @@ import '../../utils/ledger_formatters.dart';
 const _categoryBudgetFormService = CategoryBudgetFormService();
 
 class BudgetManagementPage extends StatefulWidget {
-  const BudgetManagementPage({super.key});
+  const BudgetManagementPage({super.key, this.initialMonth});
+
+  final DateTime? initialMonth;
 
   @override
   State<BudgetManagementPage> createState() => _BudgetManagementPageState();
@@ -19,16 +21,13 @@ class BudgetManagementPage extends StatefulWidget {
 class _BudgetManagementPageState extends State<BudgetManagementPage> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  DateTime _selectedMonth = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-    1,
-  );
+  late DateTime _selectedMonth;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedMonth = monthStart(widget.initialMonth ?? DateTime.now());
     _syncAmountFromStore();
   }
 

@@ -11,15 +11,28 @@ import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/ledger_formatters.dart';
-import '../widgets/add_record_sheet.dart';
+import '../pages/profile/budget_management_page.dart';
+import '../pages/add_record_page.dart';
+import '../widgets/month_nav_row.dart';
 
 const _aiInsightEngine = AiInsightEngine();
 const _aiHomeAlertService = AiHomeAlertService();
 final _aiInsightCache = AiInsightCache();
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.onOpenAiPage});
+  const HomePage({
+    super.key,
+    required this.selectedMonth,
+    required this.canGoNextMonth,
+    required this.onPreviousMonth,
+    required this.onNextMonth,
+    required this.onOpenAiPage,
+  });
 
+  final DateTime selectedMonth;
+  final bool canGoNextMonth;
+  final VoidCallback onPreviousMonth;
+  final VoidCallback onNextMonth;
   final VoidCallback onOpenAiPage;
 
   @override
@@ -28,10 +41,15 @@ class HomePage extends StatelessWidget {
       animation: ledgerStore,
       builder: (context, child) {
         final now = DateTime.now();
-        final previousMonth = DateTime(now.year, now.month - 1);
-        final income = ledgerStore.incomeForMonth(now);
-        final expense = ledgerStore.expenseForMonth(now);
-        final budget = ledgerStore.monthlyBudgetFor(now);
+        final previousMonth = DateTime(
+          selectedMonth.year,
+          selectedMonth.month - 1,
+          1,
+        );
+        final monthReference = monthReferenceDate(selectedMonth, now: now);
+        final income = ledgerStore.incomeForMonth(selectedMonth);
+        final expense = ledgerStore.expenseForMonth(selectedMonth);
+        final budget = ledgerStore.monthlyBudgetFor(selectedMonth);
         final balance = income - expense;
         final previousBalance = ledgerStore.balanceForMonth(previousMonth);
         final aiSnapshot = _aiInsightCache.getOrBuild(
@@ -39,12 +57,12 @@ class HomePage extends StatelessWidget {
           records: ledgerStore.records,
           monthlyBudget: budget,
           mode: AiSuggestionMode.balanced,
-          now: now,
+          now: monthReference,
           builder: () => _aiInsightEngine.buildSnapshot(
             records: ledgerStore.records,
             monthlyBudget: budget,
             mode: AiSuggestionMode.balanced,
-            now: now,
+            now: monthReference,
           ),
         );
         final alert = _aiHomeAlertService.evaluate(aiSnapshot);
@@ -55,28 +73,40 @@ class HomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _HomeHeader(month: now),
+                _HomeHeader(
+                  month: selectedMonth,
+                  now: now,
+                  canGoNext: canGoNextMonth,
+                  onPreviousMonth: onPreviousMonth,
+                  onNextMonth: onNextMonth,
+                ),
                 const SizedBox(height: 22),
                 _BalancePanel(
+                  month: selectedMonth,
                   balance: balance,
                   comparison: monthlyComparisonText(balance, previousBalance),
                 ),
                 const SizedBox(height: 16),
                 _MonthlySummary(income: income, expense: expense),
                 const SizedBox(height: 16),
-                _BudgetProgressCard(budget: budget, expense: expense),
+                _BudgetProgressCard(
+                  month: selectedMonth,
+                  budget: budget,
+                  expense: expense,
+                ),
                 if (alert.show) ...[
                   const SizedBox(height: 16),
                   _AiAlertCard(alert: alert, onTap: onOpenAiPage),
                 ],
                 const SizedBox(height: 28),
-                const _SectionTitle(title: '快捷记账'),
+                _SectionTitle(
+                  title: monthBillSectionTitle(selectedMonth, now: now),
+                ),
                 const SizedBox(height: 12),
-                const _QuickActions(),
-                const SizedBox(height: 28),
-                const _SectionTitle(title: '最近记录'),
-                const SizedBox(height: 12),
-                _RecentRecords(records: ledgerStore.recentRecords()),
+                _MonthlyRecords(
+                  month: selectedMonth,
+                  records: ledgerStore.recordsForMonth(selectedMonth),
+                ),
               ],
             ),
           ),
@@ -125,39 +155,36 @@ class _AiAlertCard extends StatelessWidget {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.month});
+  const _HomeHeader({
+    required this.month,
+    required this.now,
+    required this.canGoNext,
+    required this.onPreviousMonth,
+    required this.onNextMonth,
+  });
 
   final DateTime month;
+  final DateTime now;
+  final bool canGoNext;
+  final VoidCallback onPreviousMonth;
+  final VoidCallback onNextMonth;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                formatMonthTitle(month),
-                style: AppTextStyles.pageTitle(context),
-              ),
-              const SizedBox(height: 4),
-              Text('今天也把钱花得明明白白', style: AppTextStyles.pageSubtitle(context)),
-            ],
-          ),
+        MonthNavRow(
+          title: formatMonthTitle(month, now: now),
+          canGoPrevious: true,
+          canGoNext: canGoNext,
+          onPrevious: onPreviousMonth,
+          onNext: onNextMonth,
         ),
-        IconButton.filled(
-          onPressed: () => showAddRecordSheet(context),
-          tooltip: '添加记录',
-          icon: const Icon(Icons.add),
-          style: IconButton.styleFrom(
-            backgroundColor: colors.primary,
-            foregroundColor: colors.onStrong,
-            fixedSize: const Size(44, 44),
-            shape: const RoundedRectangleBorder(borderRadius: AppRadii.card),
-          ),
+        const SizedBox(height: 4),
+        Text(
+          homeSubtitleForMonth(month, now: now),
+          style: AppTextStyles.pageSubtitle(context),
         ),
       ],
     );
@@ -165,8 +192,13 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _BalancePanel extends StatelessWidget {
-  const _BalancePanel({required this.balance, required this.comparison});
+  const _BalancePanel({
+    required this.month,
+    required this.balance,
+    required this.comparison,
+  });
 
+  final DateTime month;
   final double balance;
   final String comparison;
 
@@ -197,7 +229,10 @@ class _BalancePanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text('本月结余', style: AppTextStyles.cardLabel(context)),
+              Text(
+                monthBalanceLabel(month),
+                style: AppTextStyles.cardLabel(context),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -295,8 +330,13 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _BudgetProgressCard extends StatelessWidget {
-  const _BudgetProgressCard({required this.budget, required this.expense});
+  const _BudgetProgressCard({
+    required this.month,
+    required this.budget,
+    required this.expense,
+  });
 
+  final DateTime month;
   final double budget;
   final double expense;
 
@@ -325,16 +365,25 @@ class _BudgetProgressCard extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Text('本月预算', style: AppTextStyles.bodyStrong(context)),
+              Text(
+                monthBudgetLabel(month),
+                style: AppTextStyles.bodyStrong(context),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          if (!hasBudget)
-            Text(
-              '暂未设置预算，请到“我的 - 预算管理”中设置',
-              style: AppTextStyles.bodyMuted(context),
-            )
-          else ...[
+          if (!hasBudget) ...[
+            Text('暂未设置预算，设置后可跟踪支出进度', style: AppTextStyles.bodyMuted(context)),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => _openBudgetManagement(context),
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('去设置预算'),
+              ),
+            ),
+          ] else ...[
             Row(
               children: [
                 Expanded(
@@ -375,87 +424,47 @@ class _BudgetProgressCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions();
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: ledgerStore,
-      builder: (context, child) {
-        final expenseCategories = ledgerStore
-            .categoriesForType(LedgerRecordType.expense)
-            .take(4)
-            .toList();
-        return GridView.count(
-          crossAxisCount: 4,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.78,
-          children: [
-            for (final category in expenseCategories)
-              _QuickAction(
-                icon: ledgerStore.categoryIconFor(
-                  category.name,
-                  LedgerRecordType.expense,
-                ),
-                label: category.name,
-                type: LedgerRecordType.expense,
-                category: category.name,
-              ),
-          ],
-        );
-      },
+  Future<void> _openBudgetManagement(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => BudgetManagementPage(initialMonth: month),
+      ),
     );
   }
 }
 
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.type,
-    required this.category,
-  });
+class _MonthlyRecords extends StatelessWidget {
+  const _MonthlyRecords({required this.month, required this.records});
 
-  final IconData icon;
-  final String label;
-  final LedgerRecordType type;
-  final String category;
+  final DateTime month;
+  final List<LedgerRecord> records;
 
   @override
   Widget build(BuildContext context) {
+    if (records.isEmpty) {
+      return _EmptyRecords(month: month);
+    }
+
     final colors = context.colors;
 
-    return GestureDetector(
-      onTap: () {
-        showAddRecordSheet(
-          context,
-          initialType: type,
-          initialCategory: category,
-        );
-      },
-      child: Container(
-        decoration: AppDecorations.surface(context),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadii.card,
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: AppRadii.card,
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadii.card,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: colors.primary, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.textBody,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-              ),
-            ),
+            for (var index = 0; index < records.length; index++) ...[
+              _RecordSlidable(record: records[index]),
+              if (index != records.length - 1) const _RecordDivider(),
+            ],
           ],
         ),
       ),
@@ -463,37 +472,17 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-class _RecentRecords extends StatelessWidget {
-  const _RecentRecords({required this.records});
-
-  final List<LedgerRecord> records;
-
-  @override
-  Widget build(BuildContext context) {
-    if (records.isEmpty) {
-      return const _EmptyRecords();
-    }
-
-    return Container(
-      decoration: AppDecorations.surface(context),
-      child: Column(
-        children: [
-          for (var index = 0; index < records.length; index++) ...[
-            _RecordSlidable(record: records[index]),
-            if (index != records.length - 1) const _RecordDivider(),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _EmptyRecords extends StatelessWidget {
-  const _EmptyRecords();
+  const _EmptyRecords({required this.month});
+
+  final DateTime month;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final emptyText = isCurrentMonth(month)
+        ? '本月还没有账单'
+        : '${month.month}月还没有账单';
 
     return Container(
       width: double.infinity,
@@ -503,9 +492,9 @@ class _EmptyRecords extends StatelessWidget {
         children: [
           Icon(Icons.receipt_long_outlined, color: colors.primary, size: 30),
           const SizedBox(height: 10),
-          Text('还没有记录', style: AppTextStyles.bodyStrong(context)),
+          Text(emptyText, style: AppTextStyles.bodyStrong(context)),
           const SizedBox(height: 4),
-          Text('点击右上角加号开始记账', style: AppTextStyles.bodyMuted(context)),
+          Text('点击底部加号开始记账', style: AppTextStyles.bodyMuted(context)),
         ],
       ),
     );
@@ -522,9 +511,11 @@ class _RecordTile extends StatelessWidget {
     final colors = context.colors;
     final amountColor = record.isIncome ? colors.primary : colors.danger;
 
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
+    return ColoredBox(
+      color: colors.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
         children: [
           Container(
             width: 40,
@@ -566,6 +557,7 @@ class _RecordTile extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -588,7 +580,7 @@ class _RecordSlidable extends StatelessWidget {
         children: [
           SlidableAction(
             onPressed: (_) =>
-                showAddRecordSheet(context, editingRecord: record),
+                openAddRecordPage(context, editingRecord: record),
             backgroundColor: colors.info,
             foregroundColor: colors.onStrong,
             icon: Icons.edit_outlined,

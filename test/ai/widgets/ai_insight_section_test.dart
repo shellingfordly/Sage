@@ -91,6 +91,41 @@ void main() {
 
     expect(find.text('超支原因分析'), findsOneWidget);
   });
+
+  testWidgets('notifies when budget risk or anomaly accordion is tapped', (
+    tester,
+  ) async {
+    final snapshot = _snapshot();
+    var budgetOpened = false;
+    var anomalyOpened = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.fromPalette(
+          brightness: Brightness.light,
+          colors: AppPalette.light,
+        ),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: AiInsightSection(
+              snapshot: snapshot,
+              explainer: const AiInsightExplainer(),
+              onBudgetRiskOpened: () => budgetOpened = true,
+              onAnomalyOpened: () => anomalyOpened = true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('预算风险'));
+    await tester.pumpAndSettle();
+    expect(budgetOpened, isTrue);
+
+    await tester.tap(find.text('异常消费'));
+    await tester.pumpAndSettle();
+    expect(anomalyOpened, isTrue);
+  });
 }
 
 AiInsightSnapshot _snapshot() {

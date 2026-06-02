@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/ledger_formatters.dart';
+import '../widgets/liquid_category_disk.dart';
 
 class StatisticsPage extends StatefulWidget {
   const StatisticsPage({super.key});
@@ -27,13 +28,18 @@ class _StatisticsPageState extends State<StatisticsPage> {
       builder: (context, child) {
         final now = DateTime.now();
         final range = _periodRangeFor(_selectedPeriod, now);
-        final expenseRecords = _expenseRecordsInRange(ledgerStore.records, range);
+        final expenseRecords = _expenseRecordsInRange(
+          ledgerStore.records,
+          range,
+        );
         final totalExpense = expenseRecords.fold<double>(
           0,
           (sum, record) => sum + record.amount,
         );
         final elapsedDays = _elapsedDaysForPeriod(_selectedPeriod, now);
-        final dailyAverage = elapsedDays == 0 ? 0.0 : totalExpense / elapsedDays;
+        final dailyAverage = elapsedDays == 0
+            ? 0.0
+            : totalExpense / elapsedDays;
         final largestExpense = _largestExpense(expenseRecords);
         final categories = _categoryTotalsForRecords(expenseRecords);
         final periodLabel = _periodLabel(_selectedPeriod);
@@ -108,10 +114,7 @@ class _StatisticsHeader extends StatelessWidget {
 }
 
 class _PeriodTabs extends StatelessWidget {
-  const _PeriodTabs({
-    required this.selectedPeriod,
-    required this.onSelected,
-  });
+  const _PeriodTabs({required this.selectedPeriod, required this.onSelected});
 
   final _StatisticsPeriod selectedPeriod;
   final ValueChanged<_StatisticsPeriod> onSelected;
@@ -340,93 +343,76 @@ class _CategoryBreakdown extends StatelessWidget {
     }
 
     final colors = context.colors;
-    final rowColors = [colors.primary, colors.danger, colors.info];
+    final diskColors = [
+      colors.primary,
+      colors.danger,
+      colors.info,
+      colors.positiveText,
+    ];
+    const itemsPerRow = 4;
+    final rows = <Widget>[];
+
+    for (var start = 0; start < categories.length; start += itemsPerRow) {
+      final end = math.min(start + itemsPerRow, categories.length);
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var index = start; index < end; index++)
+              Padding(
+                padding: EdgeInsets.only(right: index < end - 1 ? 12 : 0),
+                child: _CategoryDisk(
+                  category: categories[index],
+                  color: diskColors[index % diskColors.length],
+                ),
+              ),
+          ],
+        ),
+      );
+      if (end < categories.length) {
+        rows.add(const SizedBox(height: 16));
+      }
+    }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: AppDecorations.surface(context),
       child: Column(
-        children: [
-          for (var index = 0; index < categories.take(5).length; index++) ...[
-            _CategoryRow(
-              category: categories[index],
-              color: rowColors[index % rowColors.length],
-            ),
-            if (index != math.min(categories.length, 5) - 1)
-              const SizedBox(height: 16),
-          ],
-        ],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: rows,
       ),
     );
   }
 }
 
-class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({required this.category, required this.color});
+class _CategoryDisk extends StatelessWidget {
+  const _CategoryDisk({required this.category, required this.color});
 
   final CategoryTotal category;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: AppDecorations.softFill(context),
-          child: Icon(
-            iconForCategory(category.category, LedgerRecordType.expense),
+    return SizedBox(
+      width: 84,
+      child: Column(
+        children: [
+          LiquidCategoryDisk(
+            amountLabel: formatCurrency(category.amount),
+            progress: category.percent,
             color: color,
-            size: 22,
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      category.category,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    formatCurrency(category.amount),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colors.textBody,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: AppRadii.progress,
-                child: LinearProgressIndicator(
-                  value: category.percent.clamp(0, 1),
-                  minHeight: 7,
-                  color: color,
-                  backgroundColor: colors.divider,
-                ),
-              ),
-            ],
+          const SizedBox(height: 8),
+          Text(
+            category.category,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.labelMuted(context),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -485,7 +471,8 @@ class _TrendPanelState extends State<_TrendPanel> {
       decoration: AppDecorations.surface(context),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final neededWidth = buckets.length * _trendBarItemWidth +
+          final neededWidth =
+              buckets.length * _trendBarItemWidth +
               math.max(0, buckets.length - 1) * _trendBarMinSpacing;
           final contentWidth = math.max(neededWidth, constraints.maxWidth);
           final spacing = buckets.length <= 1
@@ -493,7 +480,9 @@ class _TrendPanelState extends State<_TrendPanel> {
               : (contentWidth - buckets.length * _trendBarItemWidth) /
                     (buckets.length - 1);
           final canScroll = neededWidth > constraints.maxWidth;
-          final firstDataIndex = buckets.indexWhere((bucket) => bucket.amount > 0);
+          final firstDataIndex = buckets.indexWhere(
+            (bucket) => bucket.amount > 0,
+          );
           final targetIndex = firstDataIndex == -1 ? 0 : firstDataIndex;
           _scheduleAutoScroll(
             canScroll: canScroll,
@@ -653,10 +642,7 @@ class _SectionTitle extends StatelessWidget {
 enum _StatisticsPeriod { week, month, year }
 
 class _DateRange {
-  const _DateRange({
-    required this.start,
-    required this.endExclusive,
-  });
+  const _DateRange({required this.start, required this.endExclusive});
 
   final DateTime start;
   final DateTime endExclusive;
@@ -742,7 +728,9 @@ LedgerRecord? _largestExpense(List<LedgerRecord> expenseRecords) {
   );
 }
 
-List<CategoryTotal> _categoryTotalsForRecords(List<LedgerRecord> expenseRecords) {
+List<CategoryTotal> _categoryTotalsForRecords(
+  List<LedgerRecord> expenseRecords,
+) {
   final totals = <String, double>{};
   for (final record in expenseRecords) {
     totals.update(
@@ -805,9 +793,11 @@ List<_TrendBucket> _weeklyTrendBuckets(
   final today = DateTime(now.year, now.month, now.day);
 
   final buckets = <_TrendBucket>[];
-  for (var day = range.start;
-      day.isBefore(range.endExclusive);
-      day = day.add(const Duration(days: 1))) {
+  for (
+    var day = range.start;
+    day.isBefore(range.endExclusive);
+    day = day.add(const Duration(days: 1))
+  ) {
     final amount = totalsByDay[day] ?? 0;
     buckets.add(
       _TrendBucket(
@@ -841,7 +831,10 @@ List<_TrendBucket> _monthlyTrendBuckets(
   }).toList();
 }
 
-List<_TrendBucket> _yearlyTrendBuckets(List<LedgerRecord> expenseRecords, DateTime now) {
+List<_TrendBucket> _yearlyTrendBuckets(
+  List<LedgerRecord> expenseRecords,
+  DateTime now,
+) {
   final monthlyTotals = List<double>.filled(12, 0);
 
   for (final record in expenseRecords) {

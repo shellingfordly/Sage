@@ -20,6 +20,7 @@ class LedgerManagementPage extends StatelessWidget {
           builder: (context, child) {
             final ledgers = ledgerStore.ledgers;
             final currentLedgerId = ledgerStore.currentLedger.id;
+            final colors = context.colors;
 
             return SingleChildScrollView(
               padding: AppSpacing.page,
@@ -43,18 +44,29 @@ class LedgerManagementPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Container(
-                    decoration: AppDecorations.surface(context),
-                    child: SlidableAutoCloseBehavior(
-                      child: Column(
-                        children: [
-                          for (var index = 0; index < ledgers.length; index++) ...[
-                            _LedgerSlidableRow(
-                              ledger: ledgers[index],
-                              selected: ledgers[index].id == currentLedgerId,
-                            ),
-                            if (index != ledgers.length - 1) const _PanelDivider(),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: AppRadii.card,
+                    ),
+                    foregroundDecoration: BoxDecoration(
+                      borderRadius: AppRadii.card,
+                      border: Border.all(color: colors.surfaceBorder),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: AppRadii.card,
+                      child: SlidableAutoCloseBehavior(
+                        child: Column(
+                          children: [
+                            for (var index = 0; index < ledgers.length; index++) ...[
+                              _LedgerSlidableRow(
+                                ledger: ledgers[index],
+                                selected: ledgers[index].id == currentLedgerId,
+                              ),
+                              if (index != ledgers.length - 1)
+                                const _PanelDivider(),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -168,21 +180,24 @@ class _LedgerRowContent extends StatelessWidget {
     final recordCount = ledgerStore.recordsForLedger(ledger.id).length;
     final isDefault = ledgerStore.isDefaultLedger(ledger.id);
 
-    return ListTile(
-      onTap: () => ledgerStore.switchLedger(ledger.id),
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_off,
-        color: selected ? colors.primary : colors.chevron,
-      ),
-      title: Text(
-        ledger.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppTextStyles.bodyStrong(context),
-      ),
-      subtitle: Text(
-        isDefault ? '默认账本 · 记录 $recordCount 笔' : '记录 $recordCount 笔',
-        style: AppTextStyles.bodyMuted(context),
+    return ColoredBox(
+      color: colors.surface,
+      child: ListTile(
+        onTap: () => ledgerStore.switchLedger(ledger.id),
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_off,
+          color: selected ? colors.primary : colors.chevron,
+        ),
+        title: Text(
+          ledger.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.bodyStrong(context),
+        ),
+        subtitle: Text(
+          isDefault ? '默认账本 · 记录 $recordCount 笔' : '记录 $recordCount 笔',
+          style: AppTextStyles.bodyMuted(context),
+        ),
       ),
     );
   }

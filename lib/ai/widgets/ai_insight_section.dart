@@ -19,18 +19,24 @@ class AiInsightSection extends StatelessWidget {
     super.key,
     required this.snapshot,
     required this.explainer,
+    this.selectedMonth,
     this.defaultExpandRiskAndAnomaly = false,
     this.highlightRiskAndAnomaly = false,
     this.budgetRiskSectionKey,
     this.anomalySectionKey,
+    this.onBudgetRiskOpened,
+    this.onAnomalyOpened,
   });
 
   final AiInsightSnapshot snapshot;
   final AiInsightExplainer explainer;
+  final DateTime? selectedMonth;
   final bool defaultExpandRiskAndAnomaly;
   final bool highlightRiskAndAnomaly;
   final Key? budgetRiskSectionKey;
   final Key? anomalySectionKey;
+  final VoidCallback? onBudgetRiskOpened;
+  final VoidCallback? onAnomalyOpened;
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +48,16 @@ class AiInsightSection extends StatelessWidget {
       AiRiskLevel.warning => '预警',
     };
 
+    final overviewTitle = monthOverviewLabel(
+      selectedMonth ?? snapshot.generatedAt,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _InsightAccordion(
           icon: Icons.analytics_outlined,
-          title: '本月概览',
+          title: overviewTitle,
           subtitle: explainer.overviewCardText(snapshot),
           trailingText: formatCurrency(snapshot.overview.totalExpense),
           trailingColor: colors.textPrimary,
@@ -67,6 +77,7 @@ class AiInsightSection extends StatelessWidget {
           },
           initiallyExpanded: defaultExpandRiskAndAnomaly,
           highlighted: highlightRiskAndAnomaly,
+          onExpansionChanged: onBudgetRiskOpened,
           expandedChild: _BudgetRiskDetails(snapshot: snapshot),
           actionLabel: '去预算管理',
           onAction: () => _goBudgetManagement(context),
@@ -81,6 +92,7 @@ class AiInsightSection extends StatelessWidget {
           trailingColor: colors.textPrimary,
           initiallyExpanded: defaultExpandRiskAndAnomaly,
           highlighted: highlightRiskAndAnomaly,
+          onExpansionChanged: onAnomalyOpened,
           expandedChild: _AnomalyDetails(snapshot: snapshot),
         ),
         const SizedBox(height: 10),
@@ -220,6 +232,7 @@ class _InsightAccordion extends StatelessWidget {
     this.onAction,
     this.secondaryActionLabel,
     this.onSecondaryAction,
+    this.onExpansionChanged,
   });
 
   final Key? sectionKey;
@@ -235,6 +248,7 @@ class _InsightAccordion extends StatelessWidget {
   final VoidCallback? onAction;
   final String? secondaryActionLabel;
   final VoidCallback? onSecondaryAction;
+  final VoidCallback? onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -261,6 +275,7 @@ class _InsightAccordion extends StatelessWidget {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: initiallyExpanded,
+          onExpansionChanged: (_) => onExpansionChanged?.call(),
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
           title: Row(
@@ -676,9 +691,15 @@ class _AnswerPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(answer.title, style: AppTextStyles.bodyStrong(context)),
+                    Text(
+                      answer.title,
+                      style: AppTextStyles.bodyStrong(context),
+                    ),
                     const SizedBox(height: 6),
-                    Text(answer.summary, style: AppTextStyles.bodyMuted(context)),
+                    Text(
+                      answer.summary,
+                      style: AppTextStyles.bodyMuted(context),
+                    ),
                     if (answer.suggestions.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       for (final tip in answer.suggestions)

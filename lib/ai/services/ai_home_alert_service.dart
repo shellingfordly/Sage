@@ -25,6 +25,24 @@ class AiHomeAlert {
 class AiHomeAlertService {
   const AiHomeAlertService();
 
+  int visibleBadgeCount({
+    required AiHomeAlert alert,
+    required bool budgetAcknowledged,
+    required bool anomalyAcknowledged,
+  }) {
+    var count = alert.badgeCount;
+    if (budgetAcknowledged && alert.hasBudgetWarning) {
+      count -= 1;
+    }
+    if (anomalyAcknowledged && alert.hasAnomaly) {
+      count -= alert.anomalyCount;
+    }
+    if (count < 0) {
+      return 0;
+    }
+    return count;
+  }
+
   AiHomeAlert evaluate(AiInsightSnapshot snapshot) {
     final hasBudgetWarning =
         snapshot.budgetRisk.riskLevel == AiRiskLevel.warning;

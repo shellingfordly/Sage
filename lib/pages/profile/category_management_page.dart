@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../data/ledger_store.dart';
 import '../../models/ledger_category.dart';
@@ -37,6 +38,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
             animation: ledgerStore,
             builder: (context, child) {
               final categories = ledgerStore.categoriesForType(_selectedType);
+              final colors = context.colors;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -66,23 +68,34 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                   const SizedBox(height: 12),
                   Expanded(
                     child: Container(
-                      clipBehavior: Clip.antiAlias,
-                      decoration: AppDecorations.surface(context),
-                      child: ListView.separated(
-                        itemCount: categories.length,
-                        itemBuilder: (context, index) {
-                          final category = categories[index];
-                          return _CategoryTile(
-                            category: category,
-                            onEdit: () => _showEditDialog(category),
-                            onDelete: () => _deleteCategory(category),
-                          );
-                        },
-                        separatorBuilder: (context, index) => Divider(
-                          height: 1,
-                          thickness: 1,
-                          indent: 62,
-                          color: context.colors.divider,
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: AppRadii.card,
+                      ),
+                      foregroundDecoration: BoxDecoration(
+                        borderRadius: AppRadii.card,
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: AppRadii.card,
+                        child: SlidableAutoCloseBehavior(
+                          child: ListView.separated(
+                            itemCount: categories.length,
+                            itemBuilder: (context, index) {
+                              final category = categories[index];
+                              return _CategorySlidableRow(
+                                category: category,
+                                onEdit: () => _showEditDialog(category),
+                                onDelete: () => _deleteCategory(category),
+                              );
+                            },
+                            separatorBuilder: (context, index) => Divider(
+                              height: 1,
+                              thickness: 1,
+                              indent: 62,
+                              color: colors.divider,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -177,8 +190,8 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
   }
 }
 
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
+class _CategorySlidableRow extends StatelessWidget {
+  const _CategorySlidableRow({
     required this.category,
     required this.onEdit,
     required this.onDelete,
@@ -191,32 +204,60 @@ class _CategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return ListTile(
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: AppDecorations.softFill(context),
-        child: Icon(categoryIconForKey(category.iconKey), color: colors.primary),
-      ),
-      title: Text(category.name, style: AppTextStyles.bodyStrong(context)),
-      subtitle: Text(
-        category.type == LedgerRecordType.expense ? '支出分类' : '收入分类',
-        style: AppTextStyles.bodyMuted(context),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+
+    return Slidable(
+      key: ValueKey('category-${category.id}'),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.48,
         children: [
-          IconButton(
-            onPressed: onEdit,
-            tooltip: '编辑',
-            icon: const Icon(Icons.edit_outlined),
+          SlidableAction(
+            onPressed: (_) => onEdit(),
+            backgroundColor: colors.info,
+            foregroundColor: colors.onStrong,
+            icon: Icons.edit_outlined,
+            label: '编辑',
           ),
-          IconButton(
-            onPressed: onDelete,
-            tooltip: '删除',
-            icon: Icon(Icons.delete_outline, color: colors.danger),
+          SlidableAction(
+            onPressed: (_) => onDelete(),
+            backgroundColor: colors.danger,
+            foregroundColor: colors.onStrong,
+            icon: Icons.delete_outline,
+            label: '删除',
           ),
         ],
+      ),
+      child: _CategoryRowContent(category: category),
+    );
+  }
+}
+
+class _CategoryRowContent extends StatelessWidget {
+  const _CategoryRowContent({required this.category});
+
+  final LedgerCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return ColoredBox(
+      color: colors.surface,
+      child: ListTile(
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: AppDecorations.softFill(context),
+          child: Icon(
+            categoryIconForKey(category.iconKey),
+            color: colors.primary,
+          ),
+        ),
+        title: Text(category.name, style: AppTextStyles.bodyStrong(context)),
+        subtitle: Text(
+          category.type == LedgerRecordType.expense ? '支出分类' : '收入分类',
+          style: AppTextStyles.bodyMuted(context),
+        ),
       ),
     );
   }
