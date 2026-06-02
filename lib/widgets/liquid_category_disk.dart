@@ -73,7 +73,7 @@ class _LiquidCategoryDiskState extends State<LiquidCategoryDisk>
                     widget.amountLabel,
                     style: AppTextStyles.bodyStrong(context).copyWith(
                       color: amountOnFill ? colors.onStrong : widget.color,
-                      fontSize: 13,
+                      fontSize: (13 * widget.size / 76).clamp(10.0, 13.0),
                     ),
                   ),
                 ),
@@ -115,15 +115,31 @@ class _LiquidDiskPainter extends CustomPainter {
     canvas.save();
     canvas.clipPath(circlePath);
 
+    const waveHeight = 2.8;
+    final waveLength = size.width / 1.6;
     final fillLevel = size.height * (1 - progress.clamp(0.04, 1.0));
-    final wavePaint = Paint()..color = color;
+    final waterRect = Rect.fromLTWH(
+      0,
+      fillLevel - waveHeight * 2,
+      size.width,
+      size.height - fillLevel + waveHeight * 2,
+    );
+    final wavePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [
+          _liquidShade(color, -0.08),
+          color,
+          _liquidShade(color, 0.14),
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(waterRect);
     final waterPath = Path()
       ..moveTo(0, size.height)
       ..lineTo(size.width, size.height)
       ..lineTo(size.width, fillLevel);
 
-    const waveHeight = 2.8;
-    final waveLength = size.width / 1.6;
     for (var x = size.width; x >= 0; x -= 1) {
       final y =
           fillLevel +
@@ -134,7 +150,14 @@ class _LiquidDiskPainter extends CustomPainter {
     canvas.drawPath(waterPath, wavePaint);
 
     final highlightPaint = Paint()
-      ..color = color.withValues(alpha: 0.22)
+      ..shader = LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [
+          _liquidShade(color, 0.08).withValues(alpha: 0.0),
+          _liquidShade(color, 0.2).withValues(alpha: 0.28),
+        ],
+      ).createShader(waterRect)
       ..style = PaintingStyle.fill;
     final highlightPath = Path()
       ..moveTo(0, size.height)
@@ -153,6 +176,13 @@ class _LiquidDiskPainter extends CustomPainter {
     canvas.drawPath(highlightPath, highlightPaint);
 
     canvas.restore();
+  }
+
+  static Color _liquidShade(Color color, double lightnessDelta) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl
+        .withLightness((hsl.lightness + lightnessDelta).clamp(0.0, 1.0))
+        .toColor();
   }
 
   @override

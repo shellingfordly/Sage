@@ -327,10 +327,50 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
+class _CategoryGridLayout {
+  const _CategoryGridLayout({
+    required this.itemsPerRow,
+    required this.diskSize,
+  });
+
+  final int itemsPerRow;
+  final double diskSize;
+}
+
 class _CategoryBreakdown extends StatelessWidget {
   const _CategoryBreakdown({required this.categories});
 
+  static const _itemGap = 12.0;
+  static const _minDiskSize = 48.0;
+  static const _maxDiskSize = 76.0;
+  static const _diskPadding = 8.0;
+
   final List<CategoryTotal> categories;
+
+  static _CategoryGridLayout? _layoutFor(double width, int totalItems) {
+    if (totalItems == 0 || width <= 0) {
+      return null;
+    }
+
+    final minCellWidth = _minDiskSize + _diskPadding;
+    final maxColumns = math.min(
+      totalItems,
+      ((width + _itemGap) / (minCellWidth + _itemGap)).floor(),
+    );
+
+    if (maxColumns < 2) {
+      return null;
+    }
+
+    final columns = maxColumns >= totalItems ? totalItems : maxColumns;
+    final cellWidth = (width - (columns - 1) * _itemGap) / columns;
+    final diskSize = (cellWidth - _diskPadding).clamp(_minDiskSize, _maxDiskSize);
+
+    return _CategoryGridLayout(
+      itemsPerRow: columns,
+      diskSize: diskSize,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -349,70 +389,85 @@ class _CategoryBreakdown extends StatelessWidget {
       colors.info,
       colors.positiveText,
     ];
-    const itemsPerRow = 4;
-    final rows = <Widget>[];
-
-    for (var start = 0; start < categories.length; start += itemsPerRow) {
-      final end = math.min(start + itemsPerRow, categories.length);
-      rows.add(
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var index = start; index < end; index++)
-              Padding(
-                padding: EdgeInsets.only(right: index < end - 1 ? 12 : 0),
-                child: _CategoryDisk(
-                  category: categories[index],
-                  color: diskColors[index % diskColors.length],
-                ),
-              ),
-          ],
-        ),
-      );
-      if (end < categories.length) {
-        rows.add(const SizedBox(height: 16));
-      }
-    }
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: AppDecorations.surface(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: rows,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = _layoutFor(constraints.maxWidth, categories.length);
+          if (layout == null) {
+            return const SizedBox.shrink();
+          }
+
+          final rows = <Widget>[];
+          for (var start = 0;
+              start < categories.length;
+              start += layout.itemsPerRow) {
+            final end = math.min(start + layout.itemsPerRow, categories.length);
+            rows.add(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var index = start; index < end; index++) ...[
+                    if (index > start) const SizedBox(width: _itemGap),
+                    Expanded(
+                      child: _CategoryDisk(
+                        category: categories[index],
+                        color: diskColors[index % diskColors.length],
+                        diskSize: layout.diskSize,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+            if (end < categories.length) {
+              rows.add(const SizedBox(height: 16));
+            }
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: rows,
+          );
+        },
       ),
     );
   }
 }
 
 class _CategoryDisk extends StatelessWidget {
-  const _CategoryDisk({required this.category, required this.color});
+  const _CategoryDisk({
+    required this.category,
+    required this.color,
+    required this.diskSize,
+  });
 
   final CategoryTotal category;
   final Color color;
+  final double diskSize;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 84,
-      child: Column(
-        children: [
-          LiquidCategoryDisk(
-            amountLabel: formatCurrency(category.amount),
-            progress: category.percent,
-            color: color,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            category.category,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMuted(context),
-          ),
-        ],
-      ),
+    return Column(
+      children: [
+        LiquidCategoryDisk(
+          amountLabel: formatCurrency(category.amount),
+          progress: category.percent,
+          color: color,
+          size: diskSize,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          category.category,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodyMuted(context),
+        ),
+      ],
     );
   }
 }
