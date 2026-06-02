@@ -303,7 +303,7 @@ class _SummaryTile extends StatelessWidget {
         children: [
           Icon(icon, color: iconColor, size: 22),
           const SizedBox(height: 12),
-          Text(title, style: AppTextStyles.labelMuted(context)),
+          Text(title, style: AppTextStyles.bodyMuted(context)),
           const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -415,7 +415,7 @@ class _BudgetProgressCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '预算 ${formatCurrency(budget)}',
-              style: AppTextStyles.labelMuted(context),
+              style: AppTextStyles.bodyMuted(context),
             ),
           ],
         ],

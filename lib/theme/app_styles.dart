@@ -6,7 +6,6 @@ class AppRadii {
   const AppRadii._();
 
   static const card = BorderRadius.all(Radius.circular(8));
-  static const progress = BorderRadius.all(Radius.circular(4));
 }
 
 class AppSpacing {

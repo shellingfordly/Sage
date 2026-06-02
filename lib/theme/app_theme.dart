@@ -5,12 +5,6 @@ import 'app_colors.dart';
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData get light =>
-      fromPalette(brightness: Brightness.light, colors: AppPalette.light);
-
-  static ThemeData get dark =>
-      fromPalette(brightness: Brightness.dark, colors: AppPalette.dark);
-
   static ThemeData fromPalette({
     required Brightness brightness,
     required AppPalette colors,
@@ -51,25 +45,6 @@ class AppTheme {
           fontWeight: FontWeight.w700,
           letterSpacing: 0,
         ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        height: 68,
-        backgroundColor: colors.surface,
-        indicatorColor: colors.navigationIndicator,
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return IconThemeData(
-            color: selected ? colors.primary : colors.textSecondary,
-          );
-        }),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return textTheme.labelMedium?.copyWith(
-            color: selected ? colors.primary : colors.textSecondary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            letterSpacing: 0,
-          );
-        }),
       ),
       dividerTheme: DividerThemeData(
         color: colors.divider,

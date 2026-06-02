@@ -72,7 +72,7 @@ class _BudgetManagementPageState extends State<BudgetManagementPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('当前预算', style: AppTextStyles.labelMuted(context)),
+                        Text('当前预算', style: AppTextStyles.bodyMuted(context)),
                         const SizedBox(height: 6),
                         Text(
                           budget > 0 ? formatCurrency(budget) : '未设置',

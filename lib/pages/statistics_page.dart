@@ -313,7 +313,7 @@ class _MetricTile extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.labelMuted(context),
+            style: AppTextStyles.bodyMuted(context),
           ),
           const SizedBox(height: 4),
           FittedBox(
@@ -409,7 +409,7 @@ class _CategoryDisk extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: AppTextStyles.labelMuted(context),
+            style: AppTextStyles.bodyMuted(context),
           ),
         ],
       ),

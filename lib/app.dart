@@ -37,8 +37,6 @@ class LedgerApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'Ledger App',
           theme: themeData,
-          darkTheme: themeData,
-          themeMode: ThemeMode.light,
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
           localizationsDelegates: const [

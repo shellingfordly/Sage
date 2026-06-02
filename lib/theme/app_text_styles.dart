@@ -44,13 +44,6 @@ class AppTextStyles {
     );
   }
 
-  static TextStyle labelMuted(BuildContext context) {
-    return Theme.of(context).textTheme.bodySmall!.copyWith(
-      color: context.colors.textSecondary,
-      letterSpacing: 0,
-    );
-  }
-
   static TextStyle tileValue(BuildContext context) {
     return Theme.of(context).textTheme.titleMedium!.copyWith(
       color: context.colors.textPrimary,

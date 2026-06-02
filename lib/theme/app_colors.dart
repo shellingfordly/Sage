@@ -19,10 +19,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.positiveText,
     required this.softFill,
     required this.divider,
-    required this.navigationIndicator,
     required this.chevron,
     required this.overlayOnStrong,
-    this.flatStrongSurface = false,
   });
 
   final Color primary;
@@ -41,12 +39,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color positiveText;
   final Color softFill;
   final Color divider;
-  final Color navigationIndicator;
   final Color chevron;
   final Color overlayOnStrong;
-  final bool flatStrongSurface;
 
-  /// 纯黑主题用固定色值标识，不依赖 [flatStrongSurface] 字段（热重载期间可能为空）。
+  /// 纯黑主题用固定色值标识。
   bool get isPureBlackTheme =>
       pageBackground.toARGB32() == 0xFF000000 &&
       surface.toARGB32() == 0xFF050505;
@@ -68,7 +64,6 @@ class AppPalette extends ThemeExtension<AppPalette> {
     positiveText: Color(0xFF9DD7CE),
     softFill: Color(0xFFF2EFE8),
     divider: Color(0xFFF0ECE4),
-    navigationIndicator: Color(0xFFE1F2EE),
     chevron: Color(0xFFB4B8B5),
     overlayOnStrong: Color(0x18FFFFFF),
   );
@@ -91,7 +86,6 @@ class AppPalette extends ThemeExtension<AppPalette> {
     positiveText: Color(0xFF525252),
     softFill: Color(0xFFF5F5F5),
     divider: Color(0xFFEFEFEF),
-    navigationIndicator: Color(0xFFEBEBEB),
     chevron: Color(0xFFADADAD),
     overlayOnStrong: Color(0x18FFFFFF),
   );
@@ -113,7 +107,6 @@ class AppPalette extends ThemeExtension<AppPalette> {
     positiveText: Color(0xFF8BE1D5),
     softFill: Color(0xFF26312D),
     divider: Color(0xFF2A3531),
-    navigationIndicator: Color(0xFF204B44),
     chevron: Color(0xFF77827D),
     overlayOnStrong: Color(0x24FFFFFF),
   );
@@ -136,10 +129,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     positiveText: Color(0xFF7DD3C0),
     softFill: Color(0xFF080808),
     divider: Color(0xFF0A0A0A),
-    navigationIndicator: Color(0xFF101010),
     chevron: Color(0xFF555555),
     overlayOnStrong: Color(0x14FFFFFF),
-    flatStrongSurface: true,
   );
 
   @override
@@ -160,10 +151,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? positiveText,
     Color? softFill,
     Color? divider,
-    Color? navigationIndicator,
     Color? chevron,
     Color? overlayOnStrong,
-    bool? flatStrongSurface,
   }) {
     return AppPalette(
       primary: primary ?? this.primary,
@@ -182,10 +171,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       positiveText: positiveText ?? this.positiveText,
       softFill: softFill ?? this.softFill,
       divider: divider ?? this.divider,
-      navigationIndicator: navigationIndicator ?? this.navigationIndicator,
       chevron: chevron ?? this.chevron,
       overlayOnStrong: overlayOnStrong ?? this.overlayOnStrong,
-      flatStrongSurface: flatStrongSurface ?? this.flatStrongSurface,
     );
   }
 
@@ -212,16 +199,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       positiveText: Color.lerp(positiveText, other.positiveText, t)!,
       softFill: Color.lerp(softFill, other.softFill, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
-      navigationIndicator: Color.lerp(
-        navigationIndicator,
-        other.navigationIndicator,
-        t,
-      )!,
       chevron: Color.lerp(chevron, other.chevron, t)!,
       overlayOnStrong: Color.lerp(overlayOnStrong, other.overlayOnStrong, t)!,
-      flatStrongSurface: t < 0.5
-          ? flatStrongSurface
-          : other.flatStrongSurface,
     );
   }
 }

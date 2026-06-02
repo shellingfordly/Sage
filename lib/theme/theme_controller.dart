@@ -97,8 +97,6 @@ class ThemeController extends ValueNotifier<AppThemeOption> {
     ),
   ];
 
-  List<AppColorFamilyOption> get availableColorFamilies => colorFamilies;
-
   bool get isDarkMode => _isDarkMode;
 
   AppColorFamily get colorFamily => _colorFamily;
@@ -166,13 +164,11 @@ class ThemeController extends ValueNotifier<AppThemeOption> {
 AppPalette _lightPaletteFromAccent(Color seed) {
   const base = AppPalette.light;
   const softAlpha = 0.22;
-  const navigationAlpha = 0.28;
 
   return base.copyWith(
     primary: seed,
     primarySoft: seed.withValues(alpha: softAlpha),
     info: seed,
-    navigationIndicator: seed.withValues(alpha: navigationAlpha),
     chevron: Color.lerp(base.chevron, seed, 0.25),
   );
 }
@@ -186,7 +182,6 @@ AppPalette _darkPaletteFromAccent(Color seed) {
   const strongSurface = Color(0xFF050505);
 
   return AppPalette.pureBlack.copyWith(
-    flatStrongSurface: false,
     primary: seed,
     primarySoft: Color.alphaBlend(
       seed.withValues(alpha: 0.38),
@@ -200,7 +195,6 @@ AppPalette _darkPaletteFromAccent(Color seed) {
     divider: Color.lerp(divider, seed, 0.05)!,
     strongSurface: Color.lerp(strongSurface, seed, 0.03)!,
     positiveText: seed,
-    navigationIndicator: seed.withValues(alpha: 0.35),
     chevron: Color.lerp(const Color(0xFF707070), seed, 0.22)!,
   );
 }

@@ -107,7 +107,7 @@ class _ThemePanel extends StatelessWidget {
       decoration: AppDecorations.surface(context),
       child: ValueListenableBuilder<AppThemeOption>(
         valueListenable: themeController,
-        builder: (context, selectedTheme, child) {
+        builder: (context, _, child) {
           return Column(
             children: [
               _ThemeCurrentTile(
@@ -188,7 +188,7 @@ class _ThemeSelectorGrid extends StatelessWidget {
         spacing: 10,
         runSpacing: 10,
         children: [
-          for (final option in themeController.availableColorFamilies)
+          for (final option in ThemeController.colorFamilies)
             _ThemeOptionTile(
               option: option,
               selected: option.family == selectedFamily,
