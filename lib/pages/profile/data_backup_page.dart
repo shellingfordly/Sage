@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:excel/excel.dart' as xl;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:xml/xml.dart';
 
@@ -13,6 +13,7 @@ import '../../models/ledger_record.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
+import '../../utils/platform_file_io.dart';
 
 enum _ExportRange { month, year, all, custom }
 
@@ -295,7 +296,12 @@ class _DataBackupPageState extends State<DataBackupPage> {
         bytes: Uint8List.fromList(bytes),
       );
       if (path != null) {
-        _showMessage('导出成功：${path.split(Platform.pathSeparator).last}');
+        _showMessage('导出成功：${_fileNameFromPath(path)}');
+        return;
+      }
+
+      if (kIsWeb) {
+        _showMessage('已取消导出');
         return;
       }
 
@@ -305,10 +311,9 @@ class _DataBackupPageState extends State<DataBackupPage> {
         _showMessage('已取消导出');
         return;
       }
-      final fallbackPath = '$directory${Platform.pathSeparator}$suggestedName';
-      final file = File(fallbackPath);
-      await file.writeAsBytes(bytes, flush: true);
-      _showMessage('导出成功：${file.path.split(Platform.pathSeparator).last}');
+      final fallbackPath = '$directory/$suggestedName';
+      await writeBytesToPath(fallbackPath, bytes);
+      _showMessage('导出成功：$suggestedName');
     } catch (error) {
       _showMessage('导出失败：$error');
     } finally {
@@ -393,6 +398,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls', 'csv', 'txt', 'pdf', 'doc', 'docx'],
+        withData: true,
       );
       if (result == null || result.files.isEmpty) {
         return;
@@ -456,7 +462,13 @@ class _DataBackupPageState extends State<DataBackupPage> {
     if (path == null) {
       throw StateError('无法读取文件');
     }
-    return File(path).readAsBytes();
+    return Uint8List.fromList(await readBytesFromPath(path));
+  }
+
+  String _fileNameFromPath(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final index = normalized.lastIndexOf('/');
+    return index < 0 ? normalized : normalized.substring(index + 1);
   }
 
   _ParsedRecords _parseExcelRecords(Uint8List bytes) {
