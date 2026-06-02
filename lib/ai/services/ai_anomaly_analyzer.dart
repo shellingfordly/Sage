@@ -192,3 +192,43 @@ class AiAnomalyAnalyzer {
     );
   }
 }
+
+String anomalyRecordKey({
+  required String title,
+  required String category,
+  required double amount,
+  required DateTime createdAt,
+}) {
+  return '$title|$category|$amount|${createdAt.toIso8601String()}';
+}
+
+Set<String> anomalyRecordKeys(AiAnomalyInsight insight) {
+  final keys = <String>{};
+  for (final item in insight.items) {
+    for (final record in item.records) {
+      keys.add(
+        anomalyRecordKey(
+          title: record.title,
+          category: record.category,
+          amount: record.amount,
+          createdAt: record.createdAt,
+        ),
+      );
+    }
+  }
+  return keys;
+}
+
+bool isAnomalyLedgerRecord(LedgerRecord record, Set<String> keys) {
+  if (record.isIncome || keys.isEmpty) {
+    return false;
+  }
+  return keys.contains(
+    anomalyRecordKey(
+      title: record.title,
+      category: record.category,
+      amount: record.amount,
+      createdAt: record.createdAt,
+    ),
+  );
+}

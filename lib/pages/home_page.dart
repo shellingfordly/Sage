@@ -5,6 +5,7 @@ import '../ai/models/ai_insight_models.dart';
 import '../ai/services/ai_insight_cache.dart';
 import '../ai/services/ai_insight_engine.dart';
 import '../ai/services/ai_home_alert_service.dart';
+import '../ai/services/ai_anomaly_analyzer.dart';
 import '../data/ledger_store.dart';
 import '../models/ledger_record.dart';
 import '../theme/app_colors.dart';
@@ -66,6 +67,7 @@ class HomePage extends StatelessWidget {
           ),
         );
         final alert = _aiHomeAlertService.evaluate(aiSnapshot);
+        final anomalyKeys = anomalyRecordKeys(aiSnapshot.anomalies);
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -106,6 +108,7 @@ class HomePage extends StatelessWidget {
                 _MonthlyRecords(
                   month: selectedMonth,
                   records: ledgerStore.recordsForMonth(selectedMonth),
+                  anomalyRecordKeys: anomalyKeys,
                 ),
               ],
             ),
@@ -433,10 +436,15 @@ class _BudgetProgressCard extends StatelessWidget {
 }
 
 class _MonthlyRecords extends StatelessWidget {
-  const _MonthlyRecords({required this.month, required this.records});
+  const _MonthlyRecords({
+    required this.month,
+    required this.records,
+    required this.anomalyRecordKeys,
+  });
 
   final DateTime month;
   final List<LedgerRecord> records;
+  final Set<String> anomalyRecordKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -460,7 +468,13 @@ class _MonthlyRecords extends StatelessWidget {
         child: Column(
           children: [
             for (var index = 0; index < records.length; index++) ...[
-              _RecordSlidable(record: records[index]),
+              _RecordSlidable(
+                record: records[index],
+                isAnomaly: isAnomalyLedgerRecord(
+                  records[index],
+                  anomalyRecordKeys,
+                ),
+              ),
               if (index != records.length - 1) const _RecordDivider(),
             ],
           ],
@@ -500,14 +514,22 @@ class _EmptyRecords extends StatelessWidget {
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record});
+  const _RecordTile({
+    required this.record,
+    required this.isAnomaly,
+  });
 
   final LedgerRecord record;
+  final bool isAnomaly;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final amountColor = record.isIncome ? colors.primary : colors.danger;
+    final amountColor = record.isIncome
+        ? colors.primary
+        : isAnomaly
+        ? colors.danger
+        : colors.textPrimary;
 
     return ColoredBox(
       color: colors.surface,
@@ -562,9 +584,13 @@ class _RecordTile extends StatelessWidget {
 }
 
 class _RecordSlidable extends StatelessWidget {
-  const _RecordSlidable({required this.record});
+  const _RecordSlidable({
+    required this.record,
+    required this.isAnomaly,
+  });
 
   final LedgerRecord record;
+  final bool isAnomaly;
 
   @override
   Widget build(BuildContext context) {
@@ -593,7 +619,7 @@ class _RecordSlidable extends StatelessWidget {
           ),
         ],
       ),
-      child: _RecordTile(record: record),
+      child: _RecordTile(record: record, isAnomaly: isAnomaly),
     );
   }
 
