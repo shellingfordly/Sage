@@ -62,7 +62,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '可添加、编辑和删除分类；删除后历史记录会归类到“其他”。',
+                    '可添加、编辑和删除分类；长按拖动可调整顺序，删除后历史记录会归类到“其他”。',
                     style: AppTextStyles.bodyMuted(context),
                   ),
                   const SizedBox(height: 12),
@@ -79,22 +79,59 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                       child: ClipRRect(
                         borderRadius: AppRadii.card,
                         child: SlidableAutoCloseBehavior(
-                          child: ListView.separated(
+                          child: ReorderableListView.builder(
+                            buildDefaultDragHandles: false,
                             itemCount: categories.length,
-                            itemBuilder: (context, index) {
-                              final category = categories[index];
-                              return _CategorySlidableRow(
-                                category: category,
-                                onEdit: () => _showEditDialog(category),
-                                onDelete: () => _deleteCategory(category),
+                            onReorder: (oldIndex, newIndex) {
+                              ledgerStore.reorderCategoriesForType(
+                                type: _selectedType,
+                                oldIndex: oldIndex,
+                                newIndex: newIndex,
                               );
                             },
-                            separatorBuilder: (context, index) => Divider(
-                              height: 1,
-                              thickness: 1,
-                              indent: 62,
-                              color: colors.divider,
-                            ),
+                            proxyDecorator: (child, index, animation) {
+                              return AnimatedBuilder(
+                                animation: animation,
+                                builder: (context, child) {
+                                  final elevation = Tween<double>(
+                                    begin: 0,
+                                    end: 6,
+                                  ).animate(animation).value;
+                                  return Material(
+                                    elevation: elevation,
+                                    color: colors.surface,
+                                    borderRadius: AppRadii.card,
+                                    child: child,
+                                  );
+                                },
+                                child: child,
+                              );
+                            },
+                            itemBuilder: (context, index) {
+                              final category = categories[index];
+                              final isLast = index == categories.length - 1;
+                              return ReorderableDelayedDragStartListener(
+                                key: ValueKey('category-${category.id}'),
+                                index: index,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _CategorySlidableRow(
+                                      category: category,
+                                      onEdit: () => _showEditDialog(category),
+                                      onDelete: () => _deleteCategory(category),
+                                    ),
+                                    if (!isLast)
+                                      Divider(
+                                        height: 1,
+                                        thickness: 1,
+                                        indent: 62,
+                                        color: colors.divider,
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -206,7 +243,6 @@ class _CategorySlidableRow extends StatelessWidget {
     final colors = context.colors;
 
     return Slidable(
-      key: ValueKey('category-${category.id}'),
       endActionPane: ActionPane(
         motion: const DrawerMotion(),
         extentRatio: 0.48,
@@ -258,6 +294,10 @@ class _CategoryRowContent extends StatelessWidget {
           category.type == LedgerRecordType.expense ? '支出分类' : '收入分类',
           style: AppTextStyles.bodyMuted(context),
         ),
+        trailing: Icon(
+          Icons.drag_indicator_rounded,
+          color: colors.chevron,
+        ),
       ),
     );
   }
@@ -277,86 +317,129 @@ Future<_CategoryDialogResult?> _showCategoryDialog(
   required String confirmText,
   String? initialName,
   String? initialIconKey,
-}) async {
-  final nameController = TextEditingController(text: initialName ?? '');
-  var selectedIconKey = initialIconKey ?? iconKeyForCategoryName('其他', type);
-  final formKey = GlobalKey<FormState>();
-
-  final result = await showDialog<_CategoryDialogResult>(
+}) {
+  return showDialog<_CategoryDialogResult>(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (context, setState) {
-        return AlertDialog(
-          title: Text(title),
-          content: SizedBox(
-            width: 360,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    autofocus: true,
-                    maxLength: 12,
-                    decoration: const InputDecoration(
-                      labelText: '分类名称',
-                      hintText: '例如：早餐、房租、副业',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if ((value ?? '').trim().isEmpty) {
-                        return '请输入分类名称';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  Text('选择图标', style: AppTextStyles.bodyStrong(context)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final option in categoryIconOptions)
-                        _IconChoiceChip(
-                          option: option,
-                          selected: option.key == selectedIconKey,
-                          onTap: () => setState(() => selectedIconKey = option.key),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) {
-                  return;
-                }
-                Navigator.of(dialogContext).pop(
-                  _CategoryDialogResult(
-                    name: nameController.text.trim(),
-                    iconKey: selectedIconKey,
-                  ),
-                );
-              },
-              child: Text(confirmText),
-            ),
-          ],
-        );
-      },
+    builder: (dialogContext) => _CategoryEditorDialog(
+      type: type,
+      title: title,
+      confirmText: confirmText,
+      initialName: initialName,
+      initialIconKey: initialIconKey,
     ),
   );
-  nameController.dispose();
-  return result;
+}
+
+class _CategoryEditorDialog extends StatefulWidget {
+  const _CategoryEditorDialog({
+    required this.type,
+    required this.title,
+    required this.confirmText,
+    this.initialName,
+    this.initialIconKey,
+  });
+
+  final LedgerRecordType type;
+  final String title;
+  final String confirmText;
+  final String? initialName;
+  final String? initialIconKey;
+
+  @override
+  State<_CategoryEditorDialog> createState() => _CategoryEditorDialogState();
+}
+
+class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
+  late final TextEditingController _nameController;
+  late String _selectedIconKey;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName ?? '');
+    _selectedIconKey =
+        widget.initialIconKey ??
+        iconKeyForCategoryName('其他', widget.type);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _CategoryDialogResult(
+        name: _nameController.text.trim(),
+        iconKey: _selectedIconKey,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 360,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _nameController,
+                autofocus: true,
+                maxLength: 12,
+                decoration: const InputDecoration(
+                  labelText: '分类名称',
+                  hintText: '例如：早餐、房租、副业',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if ((value ?? '').trim().isEmpty) {
+                    return '请输入分类名称';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+              Text('选择图标', style: AppTextStyles.bodyStrong(context)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final option in categoryIconOptions)
+                    _IconChoiceChip(
+                      option: option,
+                      selected: option.key == _selectedIconKey,
+                      onTap: () => setState(() => _selectedIconKey = option.key),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(widget.confirmText),
+        ),
+      ],
+    );
+  }
 }
 
 class _IconChoiceChip extends StatelessWidget {

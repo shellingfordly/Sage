@@ -394,6 +394,58 @@ class LedgerStore extends ChangeNotifier {
     return true;
   }
 
+  Future<void> reorderCategoriesForType({
+    required LedgerRecordType type,
+    required int oldIndex,
+    required int newIndex,
+    String? ledgerId,
+  }) async {
+    if (oldIndex == newIndex) {
+      return;
+    }
+
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    final categories = _categoriesByLedger.putIfAbsent(
+      targetLedgerId,
+      () => List<LedgerCategory>.from(defaultCategories()),
+    );
+
+    final typed = List<LedgerCategory>.from(
+      categoriesForType(type, ledgerId: targetLedgerId),
+    );
+    var insertIndex = newIndex;
+    if (insertIndex > oldIndex) {
+      insertIndex -= 1;
+    }
+    if (oldIndex < 0 ||
+        oldIndex >= typed.length ||
+        insertIndex < 0 ||
+        insertIndex >= typed.length) {
+      return;
+    }
+
+    final moved = typed.removeAt(oldIndex);
+    typed.insert(insertIndex, moved);
+
+    final expense = type == LedgerRecordType.expense
+        ? typed
+        : categories
+              .where((category) => category.type == LedgerRecordType.expense)
+              .toList();
+    final income = type == LedgerRecordType.income
+        ? typed
+        : categories
+              .where((category) => category.type == LedgerRecordType.income)
+              .toList();
+
+    categories
+      ..clear()
+      ..addAll(expense)
+      ..addAll(income);
+
+    await _save();
+  }
+
   Future<bool> updateCategory({
     required String categoryId,
     required String name,
