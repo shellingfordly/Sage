@@ -1,20 +1,30 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'theme_preferences.dart';
 
 final themeController = ThemeController();
 
-const _cyanAccent = Color(0xFF2F8F83);
+const _whiteAccent = Color(0xFFF5F5F5);
 const _blueAccent = Color(0xFFAED6F1);
 const _pinkAccent = Color(0xFFE6B0AA);
 const _redAccent = Color(0xFFA93226);
-const _greenAccent = Color(0xFF76D7C4);
+const _greenAccent = Color(0xFF1E8449);
 const _yellowAccent = Color(0xFFF9E79F);
 const _orangeAccent = Color(0xFFFF6600);
 
+enum ThemeModePreference {
+  light('浅色'),
+  dark('深色'),
+  system('跟随系统');
+
+  const ThemeModePreference(this.label);
+
+  final String label;
+}
+
 enum AppColorFamily {
   white,
-  cyan,
   blue,
   pink,
   red,
@@ -45,25 +55,31 @@ class AppThemeOption {
   final AppPalette palette;
 }
 
-class ThemeController extends ValueNotifier<AppThemeOption> {
+class ThemeController extends ValueNotifier<AppThemeOption>
+    with WidgetsBindingObserver {
   ThemeController()
-    : _isDarkMode = true,
-      _colorFamily = AppColorFamily.cyan,
-      super(_buildTheme(isDarkMode: true, family: AppColorFamily.cyan));
+    : _modePreference = ThemeModePreference.light,
+      _colorFamily = AppColorFamily.white,
+      _preferences = ThemePreferences(),
+      super(
+        _buildTheme(
+          isDarkMode: false,
+          family: AppColorFamily.white,
+        ),
+      ) {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
-  bool _isDarkMode;
+  ThemeModePreference _modePreference;
   AppColorFamily _colorFamily;
+  final ThemePreferences _preferences;
+  bool _loaded = false;
 
   static const List<AppColorFamilyOption> colorFamilies = [
     AppColorFamilyOption(
       family: AppColorFamily.white,
       name: '白',
-      previewColor: Color(0xFFFFFFFF),
-    ),
-    AppColorFamilyOption(
-      family: AppColorFamily.cyan,
-      name: '青',
-      previewColor: _cyanAccent,
+      previewColor: _whiteAccent,
     ),
     AppColorFamilyOption(
       family: AppColorFamily.blue,
@@ -97,7 +113,9 @@ class ThemeController extends ValueNotifier<AppThemeOption> {
     ),
   ];
 
-  bool get isDarkMode => _isDarkMode;
+  ThemeModePreference get modePreference => _modePreference;
+
+  bool get isDarkMode => _effectiveIsDarkMode;
 
   AppColorFamily get colorFamily => _colorFamily;
 
@@ -105,12 +123,22 @@ class ThemeController extends ValueNotifier<AppThemeOption> {
     return colorFamilies.firstWhere((option) => option.family == _colorFamily);
   }
 
-  void setDarkMode(bool enabled) {
-    if (_isDarkMode == enabled) {
+  Future<void> load() async {
+    final snapshot = await _preferences.load();
+    if (snapshot != null) {
+      _modePreference = snapshot.mode;
+      _colorFamily = snapshot.colorFamily;
+    }
+    _loaded = true;
+    _applyTheme(persist: false);
+  }
+
+  void setModePreference(ThemeModePreference preference) {
+    if (_modePreference == preference) {
       return;
     }
-    _isDarkMode = enabled;
-    value = _buildTheme(isDarkMode: _isDarkMode, family: _colorFamily);
+    _modePreference = preference;
+    _applyTheme();
   }
 
   void setColorFamily(AppColorFamily family) {
@@ -118,7 +146,31 @@ class ThemeController extends ValueNotifier<AppThemeOption> {
       return;
     }
     _colorFamily = family;
-    value = _buildTheme(isDarkMode: _isDarkMode, family: _colorFamily);
+    _applyTheme();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (_modePreference == ThemeModePreference.system) {
+      _applyTheme(persist: false);
+    }
+  }
+
+  bool get _effectiveIsDarkMode {
+    return switch (_modePreference) {
+      ThemeModePreference.light => false,
+      ThemeModePreference.dark => true,
+      ThemeModePreference.system =>
+        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark,
+    };
+  }
+
+  void _applyTheme({bool persist = true}) {
+    value = _buildTheme(isDarkMode: _effectiveIsDarkMode, family: _colorFamily);
+    if (persist && _loaded) {
+      _preferences.save(mode: _modePreference, colorFamily: _colorFamily);
+    }
   }
 
   static AppThemeOption _buildTheme({
@@ -138,7 +190,6 @@ class ThemeController extends ValueNotifier<AppThemeOption> {
     if (isDarkMode) {
       return switch (family) {
         AppColorFamily.white => AppPalette.pureBlack,
-        AppColorFamily.cyan => AppPalette.dark,
         AppColorFamily.blue => _darkPaletteFromAccent(_blueAccent),
         AppColorFamily.pink => _darkPaletteFromAccent(_pinkAccent),
         AppColorFamily.red => _darkPaletteFromAccent(_redAccent),
@@ -149,8 +200,7 @@ class ThemeController extends ValueNotifier<AppThemeOption> {
     }
 
     return switch (family) {
-      AppColorFamily.white => AppPalette.pureWhite,
-      AppColorFamily.cyan => AppPalette.light,
+      AppColorFamily.white => AppPalette.light,
       AppColorFamily.blue => _lightPaletteFromAccent(_blueAccent),
       AppColorFamily.pink => _lightPaletteFromAccent(_pinkAccent),
       AppColorFamily.red => _lightPaletteFromAccent(_redAccent),

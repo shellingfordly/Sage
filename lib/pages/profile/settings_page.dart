@@ -43,6 +43,7 @@ class _DarkModePanel extends StatelessWidget {
         valueListenable: themeController,
         builder: (context, _, child) {
           final colors = context.colors;
+          final mode = themeController.modePreference;
           final isDarkMode = themeController.isDarkMode;
 
           return Padding(
@@ -54,7 +55,9 @@ class _DarkModePanel extends StatelessWidget {
                   height: 40,
                   decoration: AppDecorations.softFill(context),
                   child: Icon(
-                    isDarkMode
+                    mode == ThemeModePreference.system
+                        ? Icons.brightness_auto_outlined
+                        : isDarkMode
                         ? Icons.dark_mode_outlined
                         : Icons.light_mode_outlined,
                     color: colors.primary,
@@ -67,14 +70,16 @@ class _DarkModePanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '黑暗模式',
+                        '外观模式',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.bodyStrong(context),
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        isDarkMode ? '已开启' : '已关闭',
+                        mode == ThemeModePreference.system
+                            ? '跟随系统 · ${isDarkMode ? '深色' : '浅色'}'
+                            : mode.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.bodyMuted(context),
@@ -82,16 +87,97 @@ class _DarkModePanel extends StatelessWidget {
                     ],
                   ),
                 ),
-                Switch.adaptive(
-                  value: isDarkMode,
-                  activeThumbColor: colors.onStrong,
-                  activeTrackColor: colors.primary,
-                  onChanged: themeController.setDarkMode,
+                const SizedBox(width: 10),
+                _ModeIconSelector(
+                  selected: mode,
+                  onSelected: themeController.setModePreference,
                 ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ModeIconSelector extends StatelessWidget {
+  const _ModeIconSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ThemeModePreference selected;
+  final ValueChanged<ThemeModePreference> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.softFill,
+        borderRadius: AppRadii.card,
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final option in ThemeModePreference.values) ...[
+            _ModeIconButton(
+              icon: _modeIcon(option),
+              selected: selected == option,
+              onTap: () => onSelected(option),
+            ),
+            if (option != ThemeModePreference.values.last)
+              const SizedBox(width: 2),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _modeIcon(ThemeModePreference mode) {
+    return switch (mode) {
+      ThemeModePreference.light => Icons.wb_sunny_outlined,
+      ThemeModePreference.dark => Icons.nightlight_round,
+      ThemeModePreference.system => Icons.brightness_auto_outlined,
+    };
+  }
+}
+
+class _ModeIconButton extends StatelessWidget {
+  const _ModeIconButton({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? colors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: selected ? colors.onStrong : colors.textSecondary,
+        ),
       ),
     );
   }
