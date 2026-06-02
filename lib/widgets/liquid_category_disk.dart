@@ -5,6 +5,13 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
+Color liquidCategoryShade(Color color, double lightnessDelta) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withLightness((hsl.lightness + lightnessDelta).clamp(0.0, 1.0))
+      .toColor();
+}
+
 class LiquidCategoryDisk extends StatefulWidget {
   const LiquidCategoryDisk({
     super.key,
@@ -129,9 +136,9 @@ class _LiquidDiskPainter extends CustomPainter {
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
         colors: [
-          _liquidShade(color, -0.08),
+          liquidCategoryShade(color, -0.08),
           color,
-          _liquidShade(color, 0.14),
+          liquidCategoryShade(color, 0.14),
         ],
         stops: const [0.0, 0.55, 1.0],
       ).createShader(waterRect);
@@ -154,8 +161,8 @@ class _LiquidDiskPainter extends CustomPainter {
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
         colors: [
-          _liquidShade(color, 0.08).withValues(alpha: 0.0),
-          _liquidShade(color, 0.2).withValues(alpha: 0.28),
+          liquidCategoryShade(color, 0.08).withValues(alpha: 0.0),
+          liquidCategoryShade(color, 0.2).withValues(alpha: 0.28),
         ],
       ).createShader(waterRect)
       ..style = PaintingStyle.fill;
@@ -176,13 +183,6 @@ class _LiquidDiskPainter extends CustomPainter {
     canvas.drawPath(highlightPath, highlightPaint);
 
     canvas.restore();
-  }
-
-  static Color _liquidShade(Color color, double lightnessDelta) {
-    final hsl = HSLColor.fromColor(color);
-    return hsl
-        .withLightness((hsl.lightness + lightnessDelta).clamp(0.0, 1.0))
-        .toColor();
   }
 
   @override

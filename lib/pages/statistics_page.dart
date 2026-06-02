@@ -511,6 +511,7 @@ class _TrendPanelState extends State<_TrendPanel> {
       0,
       (max, bucket) => math.max(max, bucket.amount),
     );
+    final barColor = context.colors.primary;
 
     if (buckets.isEmpty || maxAmount == 0) {
       return const _EmptyStatsPanel(
@@ -574,6 +575,7 @@ class _TrendPanelState extends State<_TrendPanel> {
                           label: buckets[index].label,
                           amount: buckets[index].amount,
                           maxAmount: maxAmount,
+                          color: barColor,
                         ),
                       ),
                       if (index != buckets.length - 1) SizedBox(width: spacing),
@@ -616,27 +618,81 @@ class _TrendBar extends StatelessWidget {
     required this.label,
     required this.amount,
     required this.maxAmount,
+    required this.color,
   });
 
   final String label;
   final double amount;
   final double maxAmount;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final active = amount == maxAmount;
+    final active = amount == maxAmount && amount > 0;
     final height = 18 + (amount / maxAmount * 104);
+    final baseColor = active ? color : color.withValues(alpha: 0.42);
+    final trackColor = Color.alphaBlend(
+      color.withValues(alpha: active ? 0.16 : 0.10),
+      context.colors.surface,
+    );
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Container(
+        SizedBox(
           width: 16,
           height: height,
-          decoration: BoxDecoration(
-            color: active ? colors.primary : colors.primarySoft,
-            borderRadius: AppRadii.card,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              Container(
+                width: 16,
+                height: height,
+                decoration: BoxDecoration(
+                  color: trackColor,
+                  borderRadius: AppRadii.card,
+                ),
+              ),
+              if (amount > 0)
+                Container(
+                  width: 16,
+                  height: height,
+                  decoration: BoxDecoration(
+                    borderRadius: AppRadii.card,
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        liquidCategoryShade(baseColor, -0.08),
+                        baseColor,
+                        liquidCategoryShade(baseColor, 0.14),
+                      ],
+                      stops: const [0.0, 0.55, 1.0],
+                    ),
+                    boxShadow: active
+                        ? [
+                            BoxShadow(
+                              color: baseColor.withValues(alpha: 0.28),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  foregroundDecoration: BoxDecoration(
+                    borderRadius: AppRadii.card,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        liquidCategoryShade(baseColor, 0.2).withValues(alpha: 0.22),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.45],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -644,7 +700,10 @@ class _TrendBar extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.bodyMuted(context),
+          style: AppTextStyles.bodyMuted(context).copyWith(
+            color: active ? context.colors.primary : null,
+            fontWeight: active ? FontWeight.w600 : null,
+          ),
         ),
       ],
     );
