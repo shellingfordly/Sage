@@ -158,6 +158,7 @@ class LedgerStore extends ChangeNotifier {
     required LedgerRecordType type,
     required String category,
     required DateTime createdAt,
+    String notes = '',
   }) async {
     final record = LedgerRecord(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -166,6 +167,7 @@ class LedgerStore extends ChangeNotifier {
       type: type,
       category: category,
       createdAt: createdAt,
+      notes: notes.trim(),
     );
 
     _currentRecords.insert(0, record);
@@ -180,6 +182,7 @@ class LedgerStore extends ChangeNotifier {
     required LedgerRecordType type,
     required String category,
     required DateTime createdAt,
+    String notes = '',
   }) async {
     final records = _currentRecords;
     final index = records.indexWhere((record) => record.id == recordId);
@@ -194,6 +197,7 @@ class LedgerStore extends ChangeNotifier {
       type: type,
       category: category,
       createdAt: createdAt,
+      notes: notes.trim(),
     );
     records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     await _save();
@@ -248,6 +252,7 @@ class LedgerStore extends ChangeNotifier {
         type: source.type,
         category: categoryName,
         createdAt: source.createdAt,
+        notes: source.notes.trim(),
       );
       final fingerprint = _recordFingerprint(normalized);
       if (skipDuplicates && existingFingerprints.contains(fingerprint)) {

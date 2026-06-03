@@ -8,6 +8,7 @@ class LedgerRecord {
     required this.type,
     required this.category,
     required this.createdAt,
+    this.notes = '',
   });
 
   final String id;
@@ -16,6 +17,7 @@ class LedgerRecord {
   final LedgerRecordType type;
   final String category;
   final DateTime createdAt;
+  final String notes;
 
   bool get isIncome => type == LedgerRecordType.income;
 
@@ -27,6 +29,7 @@ class LedgerRecord {
       'type': type.name,
       'category': category,
       'createdAt': createdAt.toIso8601String(),
+      if (notes.isNotEmpty) 'notes': notes,
     };
   }
 
@@ -38,6 +41,27 @@ class LedgerRecord {
       type: _recordTypeFromName(json['type'] as String),
       category: json['category'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      notes: json['notes'] as String? ?? '',
+    );
+  }
+
+  LedgerRecord copyWith({
+    String? id,
+    String? title,
+    double? amount,
+    LedgerRecordType? type,
+    String? category,
+    DateTime? createdAt,
+    String? notes,
+  }) {
+    return LedgerRecord(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      amount: amount ?? this.amount,
+      type: type ?? this.type,
+      category: category ?? this.category,
+      createdAt: createdAt ?? this.createdAt,
+      notes: notes ?? this.notes,
     );
   }
 }

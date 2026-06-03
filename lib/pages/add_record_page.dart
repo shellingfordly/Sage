@@ -44,6 +44,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
+  final _notesController = TextEditingController();
 
   late LedgerRecordType _type;
   late String _category;
@@ -62,6 +63,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
       _selectedDate = editingRecord.createdAt;
       _titleController.text = editingRecord.title;
       _amountController.text = editingRecord.amount.toStringAsFixed(2);
+      _notesController.text = editingRecord.notes;
       return;
     }
 
@@ -76,6 +78,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -176,6 +179,17 @@ class _AddRecordPageState extends State<AddRecordPage> {
                   onSelected: (name) => setState(() => _category = name),
                 ),
                 const SizedBox(height: 12),
+                TextFormField(
+                  controller: _notesController,
+                  enabled: !_saving,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '备注（可选）',
+                    hintText: '补充说明，导入 PDF 账单时可自动填入交易摘要',
+                    border: OutlineInputBorder(borderRadius: AppRadii.card),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _saving ? null : _pickDate,
                   icon: const Icon(Icons.calendar_today_outlined),
@@ -245,6 +259,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
         type: _type,
         category: _category,
         createdAt: _selectedDate,
+        notes: _notesController.text,
       );
     } else {
       await ledgerStore.updateRecord(
@@ -254,6 +269,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
         type: _type,
         category: _category,
         createdAt: _selectedDate,
+        notes: _notesController.text,
       );
     }
 

@@ -565,6 +565,15 @@ class _RecordTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.bodyMuted(context),
                 ),
+                if (record.notes.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    record.notes,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyMuted(context).copyWith(fontSize: 12),
+                  ),
+                ],
               ],
             ),
           ),

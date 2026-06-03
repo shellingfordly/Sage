@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:excel/excel.dart' as xl;
@@ -10,10 +9,12 @@ import 'package:xml/xml.dart';
 
 import '../../data/ledger_store.dart';
 import '../../models/ledger_record.dart';
+import '../../services/bank_bill/bank_bill_import_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/platform_file_io.dart';
+import 'bank_bill_import_review_page.dart';
 
 enum _ExportRange { month, year, all, custom }
 
@@ -25,6 +26,8 @@ class DataBackupPage extends StatefulWidget {
 }
 
 class _DataBackupPageState extends State<DataBackupPage> {
+  static const _bankBillImportService = BankBillImportService();
+
   _ExportRange _range = _ExportRange.month;
   DateTimeRange? _customRange;
   bool _busy = false;
@@ -138,12 +141,21 @@ class _DataBackupPageState extends State<DataBackupPage> {
                       child: OutlinedButton.icon(
                         onPressed: _busy ? null : _importRecords,
                         icon: const Icon(Icons.file_upload_outlined),
-                        label: const Text('导入账单文件'),
+                        label: const Text('导入 Excel / CSV'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _importBankPdfBill,
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        label: const Text('导入 PDF 账单'),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '支持 Excel（.xlsx/.xls）和 CSV（.csv）导入。Word/PDF 的结构差异较大，当前版本暂不支持自动识别导入。',
+                      'Excel / CSV 按固定列导入。PDF 支持标准五列表格流水（日期、金额、交易摘要），解析后可审核并删除不需要的记录。',
                       style: AppTextStyles.bodyMuted(context),
                     ),
                   ],
@@ -231,7 +243,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
         builder: (context) => _DataPreviewPage(
           title: '导出数据预览',
           subtitle: '${_exportRangeLabel()}  ·  共 ${records.length} 条',
-          columns: const ['日期', '类型', '分类', '名称', '金额'],
+          columns: const ['日期', '类型', '分类', '名称', '金额', '备注'],
           rows: records
               .map(
                 (record) => _PreviewRow(
@@ -241,6 +253,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
                     record.category,
                     record.title,
                     record.amount.toStringAsFixed(2),
+                    record.notes,
                   ],
                 ),
               )
@@ -266,6 +279,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
         xl.TextCellValue('分类'),
         xl.TextCellValue('名称'),
         xl.TextCellValue('金额'),
+        xl.TextCellValue('备注'),
       ]);
 
       for (final record in records) {
@@ -278,6 +292,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
           xl.TextCellValue(record.category),
           xl.TextCellValue(record.title),
           xl.DoubleCellValue(record.amount),
+          xl.TextCellValue(record.notes),
         ]);
       }
 
@@ -406,7 +421,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
       final file = result.files.single;
       final extension = (file.extension ?? '').toLowerCase();
       if (extension == 'pdf' || extension == 'doc' || extension == 'docx') {
-        _showMessage('当前版本暂不支持 PDF/Word 自动导入，请先转为 Excel 或 CSV');
+        _showMessage('请使用「导入 PDF 账单」导入 PDF 文件');
         return;
       }
 
@@ -454,6 +469,73 @@ class _DataBackupPageState extends State<DataBackupPage> {
     }
   }
 
+  Future<void> _importBankPdfBill() async {
+    setState(() => _busy = true);
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final file = result.files.single;
+      final bytes = await _readFileBytes(file);
+      final parsed = await _bankBillImportService.parsePdf(
+        bytes,
+        sourceName: file.name,
+      );
+
+      if (parsed.isCompleteFailure && parsed.skippedRows.isEmpty) {
+        _showMessage(parsed.fatalError ?? 'PDF 账单解析失败');
+        return;
+      }
+
+      if (!parsed.hasRecords && parsed.skippedRows.isEmpty) {
+        _showMessage(parsed.fatalError ?? '未识别到可导入的账单记录');
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      final confirmedRecords = await openBankBillImportReviewPage(
+        context,
+        fileName: file.name,
+        templateName: parsed.templateName,
+        records: parsed.records,
+        skippedRows: parsed.skippedRows,
+      );
+      if (confirmedRecords.isEmpty) {
+        _showMessage('已取消导入');
+        return;
+      }
+
+      final added = await ledgerStore.importRecords(
+        confirmedRecords,
+        skipDuplicates: true,
+      );
+      if (added == 0) {
+        _showMessage('没有导入新记录（可能都已存在）');
+      } else {
+        final remainingSkipped = parsed.skippedRows.length;
+        final skippedHint = remainingSkipped > 0
+            ? '；另有 $remainingSkipped 行未导入（审核时已跳过）'
+            : '';
+        _showMessage('导入成功，新增 $added 条记录$skippedHint');
+      }
+    } catch (error) {
+      _showMessage('导入失败：$error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
   Future<Uint8List> _readFileBytes(PlatformFile file) async {
     if (file.bytes != null) {
       return file.bytes!;
@@ -489,6 +571,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
             categoryCell: row.elementAtOrNull(2),
             titleCell: row.elementAtOrNull(3),
             amountCell: row.elementAtOrNull(4),
+            notesCell: row.elementAtOrNull(5),
           );
           if (parsed.record != null) {
             records.add(parsed.record!);
@@ -553,6 +636,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
             categoryText: columns[2] ?? '',
             titleText: columns[3] ?? '',
             amountText: columns[4] ?? '',
+            notesText: columns[5] ?? '',
           );
           if (parsed.record != null) {
             records.add(parsed.record!);
@@ -639,6 +723,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
           categoryText: columns.elementAtOrNull(2) ?? '',
           titleText: columns.elementAtOrNull(3) ?? '',
           amountText: columns.elementAtOrNull(4) ?? '',
+          notesText: columns.elementAtOrNull(5) ?? '',
         );
         if (parsed.record != null) {
           records.add(parsed.record!);
@@ -663,13 +748,15 @@ class _DataBackupPageState extends State<DataBackupPage> {
     required xl.Data? categoryCell,
     required xl.Data? titleCell,
     required xl.Data? amountCell,
+    xl.Data? notesCell,
   }) {
     final title = _cellString(titleCell).trim();
     final category = _cellString(categoryCell).trim();
     final typeText = _cellString(typeCell).trim();
     final dateText = _cellString(dateCell).trim();
     final amountText = _cellString(amountCell).trim();
-    if ([title, category, typeText, dateText, amountText].every((item) => item.isEmpty)) {
+    final notes = _cellString(notesCell).trim();
+    if ([title, category, typeText, dateText, amountText, notes].every((item) => item.isEmpty)) {
       return const _RowParseResult.empty();
     }
     if (title.isEmpty) {
@@ -698,6 +785,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
         type: type,
         category: category,
         createdAt: createdAt,
+        notes: notes,
       ),
     );
   }
@@ -709,13 +797,15 @@ class _DataBackupPageState extends State<DataBackupPage> {
     required String categoryText,
     required String titleText,
     required String amountText,
+    String notesText = '',
   }) {
     final title = titleText.trim();
     final category = categoryText.trim();
     final typeRaw = typeText.trim();
     final dateRaw = dateText.trim();
     final amountRaw = amountText.trim();
-    if ([title, category, typeRaw, dateRaw, amountRaw].every((item) => item.isEmpty)) {
+    final notes = notesText.trim();
+    if ([title, category, typeRaw, dateRaw, amountRaw, notes].every((item) => item.isEmpty)) {
       return const _RowParseResult.empty();
     }
     if (title.isEmpty) {
@@ -745,6 +835,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
         type: type,
         category: category,
         createdAt: createdAt,
+        notes: notes,
       ),
     );
   }
@@ -896,7 +987,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
           title: '导入预览',
           subtitle:
               '文件：$fileName  ·  总行数：$totalRows  ·  可导入：${parsed.records.length}  ·  失败：${parsed.failedRows.length}',
-          columns: const ['日期', '类型', '分类', '名称', '金额'],
+          columns: const ['日期', '类型', '分类', '名称', '金额', '备注'],
           rows: parsed.records
               .map(
                 (record) => _PreviewRow(
@@ -906,6 +997,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
                     record.category,
                     record.title,
                     record.amount.toStringAsFixed(2),
+                    record.notes,
                   ],
                 ),
               )
