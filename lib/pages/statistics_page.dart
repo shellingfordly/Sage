@@ -20,14 +20,35 @@ class StatisticsPage extends StatefulWidget {
 
 class _StatisticsPageState extends State<StatisticsPage> {
   _StatisticsPeriod _selectedPeriod = _StatisticsPeriod.month;
+  int _selectedYear = DateTime.now().year;
+  int _selectedMonth = DateTime.now().month;
+
+  DateTime _anchorDate(DateTime today) => switch (_selectedPeriod) {
+    _StatisticsPeriod.year => DateTime(_selectedYear, 1, 1),
+    _StatisticsPeriod.month => DateTime(_selectedYear, _selectedMonth, 1),
+  };
+
+  void _onYearSelected(int year, DateTime today) {
+    setState(() {
+      _selectedYear = year;
+      if (year == today.year && _selectedMonth > today.month) {
+        _selectedMonth = today.month;
+      }
+    });
+  }
+
+  void _onMonthSelected(int month) {
+    setState(() => _selectedMonth = month);
+  }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: ledgerStore,
       builder: (context, child) {
-        final now = DateTime.now();
-        final range = _periodRangeFor(_selectedPeriod, now);
+        final today = DateTime.now();
+        final anchor = _anchorDate(today);
+        final range = _periodRangeFor(_selectedPeriod, anchor);
         final expenseRecords = _expenseRecordsInRange(
           ledgerStore.records,
           range,
@@ -36,14 +57,32 @@ class _StatisticsPageState extends State<StatisticsPage> {
           0,
           (sum, record) => sum + record.amount,
         );
-        final elapsedDays = _elapsedDaysForPeriod(_selectedPeriod, now);
+        final isCurrentPeriod = _isCurrentPeriod(
+          _selectedPeriod,
+          anchor,
+          today,
+        );
+        final elapsedDays = _elapsedDaysForPeriod(
+          _selectedPeriod,
+          anchor,
+          today,
+        );
         final dailyAverage = elapsedDays == 0
             ? 0.0
             : totalExpense / elapsedDays;
         final largestExpense = _largestExpense(expenseRecords);
         final categories = _categoryTotalsForRecords(expenseRecords);
-        final periodLabel = _periodLabel(_selectedPeriod);
-        final periodRangeText = _formatPeriodRangeText(range, now);
+        final periodLabel = _periodLabel(
+          _selectedPeriod,
+          anchor,
+          today,
+        );
+        final firstYear = _statisticsFirstYear(today);
+        final periodRangeText = _formatPeriodRangeText(
+          range,
+          today,
+          isCurrentPeriod: isCurrentPeriod,
+        );
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -53,17 +92,30 @@ class _StatisticsPageState extends State<StatisticsPage> {
               children: [
                 const _StatisticsHeader(),
                 const SizedBox(height: 20),
-                _PeriodTabs(
+                _StatisticsPeriodPanel(
                   selectedPeriod: _selectedPeriod,
-                  onSelected: (period) {
+                  selectedYear: _selectedYear,
+                  selectedMonth: _selectedMonth,
+                  firstYear: firstYear,
+                  lastYear: today.year,
+                  currentMonth: today.month,
+                  periodRangeText: periodRangeText,
+                  onPeriodSelected: (period) {
                     if (period == _selectedPeriod) {
                       return;
                     }
-                    setState(() => _selectedPeriod = period);
+                    setState(() {
+                      _selectedPeriod = period;
+                      if (period == _StatisticsPeriod.month &&
+                          _selectedYear == today.year &&
+                          _selectedMonth > today.month) {
+                        _selectedMonth = today.month;
+                      }
+                    });
                   },
+                  onYearSelected: (year) => _onYearSelected(year, today),
+                  onMonthSelected: _onMonthSelected,
                 ),
-                const SizedBox(height: 8),
-                _PeriodRangePill(text: periodRangeText),
                 const SizedBox(height: 18),
                 _TotalCard(
                   periodLabel: periodLabel,
@@ -86,7 +138,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
                   period: _selectedPeriod,
                   expenseRecords: expenseRecords,
                   range: range,
-                  now: now,
+                  anchor: anchor,
+                  today: today,
                 ),
               ],
             ),
@@ -107,48 +160,198 @@ class _StatisticsHeader extends StatelessWidget {
       children: [
         Text('统计', style: AppTextStyles.pageTitle(context)),
         const SizedBox(height: 4),
-        Text('按周、月、年查看你的钱都流向哪里', style: AppTextStyles.pageSubtitle(context)),
+        Text('按月可选年份与月份，按年查看全年', style: AppTextStyles.pageSubtitle(context)),
       ],
     );
   }
 }
 
-class _PeriodTabs extends StatelessWidget {
-  const _PeriodTabs({required this.selectedPeriod, required this.onSelected});
+class _StatisticsPeriodPanel extends StatelessWidget {
+  const _StatisticsPeriodPanel({
+    required this.selectedPeriod,
+    required this.selectedYear,
+    required this.selectedMonth,
+    required this.firstYear,
+    required this.lastYear,
+    required this.currentMonth,
+    required this.periodRangeText,
+    required this.onPeriodSelected,
+    required this.onYearSelected,
+    required this.onMonthSelected,
+  });
+
+  final _StatisticsPeriod selectedPeriod;
+  final int selectedYear;
+  final int selectedMonth;
+  final int firstYear;
+  final int lastYear;
+  final int currentMonth;
+  final String periodRangeText;
+  final ValueChanged<_StatisticsPeriod> onPeriodSelected;
+  final ValueChanged<int> onYearSelected;
+  final ValueChanged<int> onMonthSelected;
+
+  List<int> _visibleMonths() {
+    final lastMonth = selectedYear < lastYear ? 12 : currentMonth;
+    return [for (var month = 1; month <= lastMonth; month++) month];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final years = [for (var y = firstYear; y <= lastYear; y++) y];
+    final visibleMonths = _visibleMonths();
+
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: AppDecorations.surface(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+            child: _PeriodSegmentedControl(
+              selectedPeriod: selectedPeriod,
+              onSelected: onPeriodSelected,
+            ),
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: colors.surfaceBorder.withValues(alpha: 0.65),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: selectedPeriod == _StatisticsPeriod.year
+                ? _HorizontalChipStrip(
+                    selectedIndex: selectedYear - firstYear,
+                    itemStride: 56,
+                    onSelected: (index) => onYearSelected(years[index]),
+                    items: [
+                      for (final year in years)
+                        _StripChipItem(label: '$year', enabled: true),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _HorizontalChipStrip(
+                        selectedIndex: selectedYear - firstYear,
+                        itemStride: 56,
+                        onSelected: (index) => onYearSelected(years[index]),
+                        items: [
+                          for (final year in years)
+                            _StripChipItem(label: '$year', enabled: true),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _HorizontalChipStrip(
+                        selectedIndex: math.max(
+                          0,
+                          visibleMonths.indexOf(selectedMonth),
+                        ),
+                        itemStride: 46,
+                        onSelected: (index) =>
+                            onMonthSelected(visibleMonths[index]),
+                        items: [
+                          for (final month in visibleMonths)
+                            _StripChipItem(label: '$month月', enabled: true),
+                        ],
+                      ),
+                    ],
+                  ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                colors.primary.withValues(alpha: 0.08),
+                colors.surface,
+              ),
+              border: Border(
+                top: BorderSide(
+                  color: colors.surfaceBorder.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 13,
+                  color: colors.primary.withValues(alpha: 0.9),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    periodRangeText,
+                    style: AppTextStyles.bodyMuted(context).copyWith(
+                      color: colors.textBody,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeriodSegmentedControl extends StatelessWidget {
+  const _PeriodSegmentedControl({
+    required this.selectedPeriod,
+    required this.onSelected,
+  });
 
   final _StatisticsPeriod selectedPeriod;
   final ValueChanged<_StatisticsPeriod> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _PeriodChip(
-          label: '本月',
-          selected: selectedPeriod == _StatisticsPeriod.month,
-          onTap: () => onSelected(_StatisticsPeriod.month),
+    final colors = context.colors;
+
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.softFill,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: colors.surfaceBorder.withValues(alpha: 0.7),
         ),
-        const SizedBox(width: 8),
-        _PeriodChip(
-          label: '本周',
-          selected: selectedPeriod == _StatisticsPeriod.week,
-          onTap: () => onSelected(_StatisticsPeriod.week),
-        ),
-        const SizedBox(width: 8),
-        _PeriodChip(
-          label: '本年',
-          selected: selectedPeriod == _StatisticsPeriod.year,
-          onTap: () => onSelected(_StatisticsPeriod.year),
-        ),
-      ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _PeriodSegment(
+              label: '按月',
+              selected: selectedPeriod == _StatisticsPeriod.month,
+              onTap: () => onSelected(_StatisticsPeriod.month),
+            ),
+          ),
+          Expanded(
+            child: _PeriodSegment(
+              label: '按年',
+              selected: selectedPeriod == _StatisticsPeriod.year,
+              onTap: () => onSelected(_StatisticsPeriod.year),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _PeriodChip extends StatelessWidget {
-  const _PeriodChip({
+class _PeriodSegment extends StatelessWidget {
+  const _PeriodSegment({
     required this.label,
-    this.selected = false,
+    required this.selected,
     required this.onTap,
   });
 
@@ -160,56 +363,166 @@ class _PeriodChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? colors.primary : colors.surface,
-          borderRadius: AppRadii.card,
-          border: Border.all(
-            color: selected ? colors.primary : colors.surfaceBorder,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(7),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? colors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: colors.primary.withValues(alpha: 0.22),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.chip(context, selected: selected),
+          child: Text(
+            label,
+            style: AppTextStyles.chip(context, selected: selected).copyWith(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _PeriodRangePill extends StatelessWidget {
-  const _PeriodRangePill({required this.text});
+class _StripChipItem {
+  const _StripChipItem({required this.label, required this.enabled});
 
-  final String text;
+  final String label;
+  final bool enabled;
+}
+
+class _HorizontalChipStrip extends StatefulWidget {
+  const _HorizontalChipStrip({
+    required this.items,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.itemStride,
+  });
+
+  final List<_StripChipItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final double itemStride;
+
+  @override
+  State<_HorizontalChipStrip> createState() => _HorizontalChipStripState();
+}
+
+class _HorizontalChipStripState extends State<_HorizontalChipStrip> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+  }
+
+  @override
+  void didUpdateWidget(_HorizontalChipStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _scrollToSelected() {
+    if (!_controller.hasClients || widget.items.isEmpty) {
+      return;
+    }
+    final index = widget.selectedIndex.clamp(0, widget.items.length - 1);
+    final offset = math.max(0.0, index * widget.itemStride - widget.itemStride);
+    _controller.animateTo(
+      offset.clamp(0.0, _controller.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: colors.primarySoft,
-        border: Border.all(color: colors.surfaceBorder),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.calendar_today_outlined, size: 14, color: colors.primary),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: AppTextStyles.bodyMuted(
-              context,
-            ).copyWith(color: colors.textBody, fontWeight: FontWeight.w600),
-          ),
-        ],
+    return SizedBox(
+      height: 30,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.trackpad,
+            PointerDeviceKind.stylus,
+          },
+        ),
+        child: ListView.separated(
+          controller: _controller,
+          scrollDirection: Axis.horizontal,
+          itemCount: widget.items.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            final item = widget.items[index];
+            final selected = index == widget.selectedIndex;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: item.enabled ? () => widget.onSelected(index) : null,
+                borderRadius: BorderRadius.circular(6),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(horizontal: 11),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? colors.primary
+                        : item.enabled
+                        ? colors.primarySoft.withValues(alpha: 0.45)
+                        : colors.surface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: selected
+                          ? colors.primary
+                          : item.enabled
+                          ? colors.surfaceBorder.withValues(alpha: 0.85)
+                          : colors.surfaceBorder.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    item.label,
+                    style: AppTextStyles.chip(context, selected: selected)
+                        .copyWith(
+                          fontSize: 12,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                          color: item.enabled
+                              ? null
+                              : colors.textSecondary.withValues(alpha: 0.45),
+                        ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -477,13 +790,15 @@ class _TrendPanel extends StatefulWidget {
     required this.period,
     required this.expenseRecords,
     required this.range,
-    required this.now,
+    required this.anchor,
+    required this.today,
   });
 
   final _StatisticsPeriod period;
   final List<LedgerRecord> expenseRecords;
   final _DateRange range;
-  final DateTime now;
+  final DateTime anchor;
+  final DateTime today;
 
   @override
   State<_TrendPanel> createState() => _TrendPanelState();
@@ -505,7 +820,8 @@ class _TrendPanelState extends State<_TrendPanel> {
       period: widget.period,
       expenseRecords: widget.expenseRecords,
       range: widget.range,
-      now: widget.now,
+      anchor: widget.anchor,
+      today: widget.today,
     );
     final maxAmount = buckets.fold<double>(
       0,
@@ -753,7 +1069,7 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-enum _StatisticsPeriod { week, month, year }
+enum _StatisticsPeriod { month, year }
 
 class _DateRange {
   const _DateRange({required this.start, required this.endExclusive});
@@ -762,21 +1078,57 @@ class _DateRange {
   final DateTime endExclusive;
 }
 
-String _periodLabel(_StatisticsPeriod period) {
+bool _isCurrentPeriod(
+  _StatisticsPeriod period,
+  DateTime anchor,
+  DateTime today,
+) {
   switch (period) {
-    case _StatisticsPeriod.week:
-      return '本周';
     case _StatisticsPeriod.month:
-      return '本月';
+      return anchor.year == today.year && anchor.month == today.month;
     case _StatisticsPeriod.year:
-      return '本年';
+      return anchor.year == today.year;
   }
 }
 
-String _formatPeriodRangeText(_DateRange range, DateTime now) {
-  final today = DateTime(now.year, now.month, now.day);
+String _periodLabel(
+  _StatisticsPeriod period,
+  DateTime anchor,
+  DateTime today,
+) {
+  if (_isCurrentPeriod(period, anchor, today)) {
+    return switch (period) {
+      _StatisticsPeriod.month => '本月',
+      _StatisticsPeriod.year => '本年',
+    };
+  }
+  return switch (period) {
+    _StatisticsPeriod.month => anchor.year == today.year
+        ? '${anchor.month}月'
+        : '${anchor.year}年${anchor.month}月',
+    _StatisticsPeriod.year => '${anchor.year}年',
+  };
+}
+
+int _statisticsFirstYear(DateTime today) {
+  var firstYear = today.year;
+  for (final record in ledgerStore.records) {
+    if (record.createdAt.year < firstYear) {
+      firstYear = record.createdAt.year;
+    }
+  }
+  return firstYear;
+}
+
+String _formatPeriodRangeText(
+  _DateRange range,
+  DateTime today, {
+  required bool isCurrentPeriod,
+}) {
+  final todayDate = DateTime(today.year, today.month, today.day);
   final rangeEnd = range.endExclusive.subtract(const Duration(days: 1));
-  final displayEnd = today.isBefore(rangeEnd) ? today : rangeEnd;
+  final displayEnd =
+      isCurrentPeriod && todayDate.isBefore(rangeEnd) ? todayDate : rangeEnd;
   return '${_formatDate(range.start)} - ${_formatDate(displayEnd)}';
 }
 
@@ -786,39 +1138,38 @@ String _formatDate(DateTime date) {
   return '${date.year}.$month.$day';
 }
 
-_DateRange _periodRangeFor(_StatisticsPeriod period, DateTime now) {
-  final dayStart = DateTime(now.year, now.month, now.day);
-
+_DateRange _periodRangeFor(_StatisticsPeriod period, DateTime anchor) {
   switch (period) {
-    case _StatisticsPeriod.week:
-      final weekStart = dayStart.subtract(Duration(days: dayStart.weekday - 1));
-      return _DateRange(
-        start: weekStart,
-        endExclusive: weekStart.add(const Duration(days: 7)),
-      );
     case _StatisticsPeriod.month:
-      final monthStart = DateTime(now.year, now.month, 1);
+      final monthStartDate = DateTime(anchor.year, anchor.month, 1);
       return _DateRange(
-        start: monthStart,
-        endExclusive: DateTime(now.year, now.month + 1, 1),
+        start: monthStartDate,
+        endExclusive: DateTime(anchor.year, anchor.month + 1, 1),
       );
     case _StatisticsPeriod.year:
-      final yearStart = DateTime(now.year, 1, 1);
+      final yearStart = DateTime(anchor.year, 1, 1);
       return _DateRange(
         start: yearStart,
-        endExclusive: DateTime(now.year + 1, 1, 1),
+        endExclusive: DateTime(anchor.year + 1, 1, 1),
       );
   }
 }
 
-int _elapsedDaysForPeriod(_StatisticsPeriod period, DateTime now) {
+int _elapsedDaysForPeriod(
+  _StatisticsPeriod period,
+  DateTime anchor,
+  DateTime today,
+) {
+  final range = _periodRangeFor(period, anchor);
+  if (!_isCurrentPeriod(period, anchor, today)) {
+    return range.endExclusive.difference(range.start).inDays;
+  }
+
   switch (period) {
-    case _StatisticsPeriod.week:
-      return now.weekday;
     case _StatisticsPeriod.month:
-      return now.day;
+      return today.day;
     case _StatisticsPeriod.year:
-      return now.difference(DateTime(now.year, 1, 1)).inDays + 1;
+      return today.difference(DateTime(today.year, 1, 1)).inDays + 1;
   }
 }
 
@@ -869,15 +1220,14 @@ List<_TrendBucket> _trendBucketsForPeriod({
   required _StatisticsPeriod period,
   required List<LedgerRecord> expenseRecords,
   required _DateRange range,
-  required DateTime now,
+  required DateTime anchor,
+  required DateTime today,
 }) {
   switch (period) {
-    case _StatisticsPeriod.week:
-      return _weeklyTrendBuckets(expenseRecords, range, now);
     case _StatisticsPeriod.month:
-      return _monthlyTrendBuckets(expenseRecords, range, now);
+      return _monthlyTrendBuckets(expenseRecords, range, today);
     case _StatisticsPeriod.year:
-      return _yearlyTrendBuckets(expenseRecords, now);
+      return _yearlyTrendBuckets(expenseRecords, anchor, today);
   }
 }
 
@@ -896,34 +1246,6 @@ Map<DateTime, double> _dailyTotalsMap(List<LedgerRecord> expenseRecords) {
     );
   }
   return totalsByDay;
-}
-
-List<_TrendBucket> _weeklyTrendBuckets(
-  List<LedgerRecord> expenseRecords,
-  _DateRange range,
-  DateTime now,
-) {
-  final totalsByDay = _dailyTotalsMap(expenseRecords);
-  final today = DateTime(now.year, now.month, now.day);
-
-  final buckets = <_TrendBucket>[];
-  for (
-    var day = range.start;
-    day.isBefore(range.endExclusive);
-    day = day.add(const Duration(days: 1))
-  ) {
-    final amount = totalsByDay[day] ?? 0;
-    buckets.add(
-      _TrendBucket(
-        label: '${day.weekday}',
-        summaryLabel: '${day.month}月${day.day}日',
-        amount: amount,
-        isToday: day == today,
-      ),
-    );
-  }
-
-  return buckets;
 }
 
 List<_TrendBucket> _monthlyTrendBuckets(
@@ -947,7 +1269,8 @@ List<_TrendBucket> _monthlyTrendBuckets(
 
 List<_TrendBucket> _yearlyTrendBuckets(
   List<LedgerRecord> expenseRecords,
-  DateTime now,
+  DateTime anchor,
+  DateTime today,
 ) {
   final monthlyTotals = List<double>.filled(12, 0);
 
@@ -955,14 +1278,14 @@ List<_TrendBucket> _yearlyTrendBuckets(
     monthlyTotals[record.createdAt.month - 1] += record.amount;
   }
 
-  final currentMonth = now.month;
+  final highlightMonth = anchor.year == today.year ? today.month : null;
   return [
     for (var index = 0; index < monthlyTotals.length; index++)
       _TrendBucket(
         label: '${index + 1}月',
         summaryLabel: '${index + 1}月',
         amount: monthlyTotals[index],
-        isToday: index + 1 == currentMonth,
+        isToday: highlightMonth != null && index + 1 == highlightMonth,
       ),
   ];
 }
