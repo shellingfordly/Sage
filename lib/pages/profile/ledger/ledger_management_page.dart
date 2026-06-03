@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
-import '../../data/ledger_store.dart';
-import '../../models/ledger_book.dart';
-import '../../theme/app_colors.dart';
-import '../../theme/app_styles.dart';
-import '../../theme/app_text_styles.dart';
+import '../../../data/ledger_store.dart';
+import '../../../models/ledger_book.dart';
+import '../../../theme/app_colors.dart';
+import '../../../theme/app_styles.dart';
+import '../../../theme/app_text_styles.dart';
+import '../../../components/dialogs/ledger_name_dialog.dart';
+import '../../../components/dialogs/confirm_dialog.dart';
 import 'ledger_merge_page.dart';
-import 'ledger_name_dialog.dart';
 
 class LedgerManagementPage extends StatelessWidget {
   const LedgerManagementPage({super.key});
@@ -158,22 +159,11 @@ class _LedgerSlidableRow extends StatelessWidget {
   }
 
   Future<void> _deleteLedger(BuildContext context) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除账本'),
-        content: Text('确定删除「${ledger.name}」吗？账本内记录会一并删除。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final shouldDelete = await showConfirmDialog(
+      context,
+      title: '删除账本',
+      content: '确定删除「${ledger.name}」吗？账本内记录会一并删除。',
+      confirmText: '删除',
     );
     if (shouldDelete != true) {
       return;

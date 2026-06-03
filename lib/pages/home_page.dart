@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
-import '../ai/models/ai_insight_models.dart';
-import '../ai/services/ai_insight_cache.dart';
-import '../ai/services/ai_insight_engine.dart';
-import '../ai/services/ai_home_alert_service.dart';
-import '../ai/services/ai_anomaly_analyzer.dart';
+import '../models/ai_insight_models.dart';
+import '../services/ai/ai_insight_cache.dart';
+import '../services/ai/ai_insight_engine.dart';
+import '../services/ai/ai_home_alert_service.dart';
+import '../services/ai/ai_anomaly_analyzer.dart';
 import '../data/ledger_store.dart';
 import '../models/ledger_record.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/ledger_formatters.dart';
-import '../pages/profile/budget_management_page.dart';
+import 'profile/budget_management_page.dart';
 import '../pages/add_record_page.dart';
-import '../widgets/month_nav_row.dart';
+import '../components/sheets/record_detail_sheet.dart';
+import '../components/nav/month_nav_row.dart';
 
 const _aiInsightEngine = AiInsightEngine();
 const _aiHomeAlertService = AiHomeAlertService();
@@ -380,7 +381,7 @@ class _BudgetProgressCard extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
                 onPressed: () => _openBudgetManagement(context),
-                icon: const Icon(Icons.settings_outlined, size: 18),
+                icon: const Icon(Icons.settings_outlined),
                 label: const Text('去设置预算'),
               ),
             ),
@@ -531,61 +532,64 @@ class _RecordTile extends StatelessWidget {
         ? colors.danger
         : colors.textPrimary;
 
-    return ColoredBox(
+    return Material(
       color: colors.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: AppDecorations.softFill(context),
-            child: Icon(
-              ledgerStore.categoryIconFor(record.category, record.type),
-              color: colors.textBody,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.bodyStrong(context),
+      child: InkWell(
+        onTap: () => showRecordDetailSheet(context, record: record),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: AppDecorations.softFill(context),
+                child: Icon(
+                  ledgerStore.categoryIconFor(record.category, record.type),
+                  color: colors.textBody,
+                  size: 22,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${record.category} · ${formatRecordDate(record.createdAt)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.bodyMuted(context),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      record.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodyStrong(context),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${record.category} · ${formatRecordDate(record.createdAt)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodyMuted(context),
+                    ),
+                    if (record.notes.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        record.notes,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyMuted(context),
+                      ),
+                    ],
+                  ],
                 ),
-                if (record.notes.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    record.notes,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.bodyMuted(context).copyWith(fontSize: 12),
-                  ),
-                ],
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  formatRecordAmount(record),
+                  style: AppTextStyles.amount(context, amountColor),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              formatRecordAmount(record),
-              style: AppTextStyles.amount(context, amountColor),
-            ),
-          ),
-        ],
         ),
       ),
     );

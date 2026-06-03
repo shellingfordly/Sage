@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../data/ledger_store.dart';
-import '../../models/ledger_book.dart';
-import '../../models/ledger_record.dart';
-import '../../services/ledger_merge_analyzer.dart';
-import '../../theme/app_colors.dart';
-import '../../theme/app_styles.dart';
-import '../../theme/app_text_styles.dart';
-import '../../utils/ledger_formatters.dart';
+import '../../../data/ledger_store.dart';
+import '../../../models/ledger_book.dart';
+import '../../../models/ledger_record.dart';
+import '../../../services/ledger/ledger_merge_analyzer.dart';
+import '../../../theme/app_colors.dart';
+import '../../../theme/app_styles.dart';
+import '../../../theme/app_text_styles.dart';
+import '../../../utils/ledger_formatters.dart';
+import '../../../components/pickers/record_date_picker.dart';
 
 enum _MergeRange { month, pickMonth, all, custom }
 
@@ -324,15 +325,9 @@ class _LedgerMergePageState extends State<LedgerMergePage> {
 
   Future<void> _pickMonth() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await pickMonthDate(
+      context,
       initialDate: _pickedMonth ?? now,
-      firstDate: DateTime(2020),
-      lastDate: now,
-      helpText: '选择月份',
-      locale: const Locale('zh', 'CN'),
-      cancelText: '取消',
-      confirmText: '确定',
     );
     if (picked == null) {
       return;
@@ -344,20 +339,17 @@ class _LedgerMergePageState extends State<LedgerMergePage> {
 
   Future<void> _pickCustomRange() async {
     final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      initialDateRange: _customRange ??
-          DateTimeRange(
-            start: DateTime(now.year, now.month, 1),
-            end: DateTime(now.year, now.month, now.day),
-          ),
-      firstDate: DateTime(2020),
+    final initialRange = _customRange ??
+        DateTimeRange(
+          start: DateTime(now.year, now.month, 1),
+          end: DateTime(now.year, now.month, now.day),
+        );
+    final picked = await pickCustomDateRange(
+      context,
+      initialStart: initialRange.start,
+      initialEnd: initialRange.end,
       lastDate: DateTime.now().add(const Duration(days: 3650)),
       helpText: '选择合并时间范围',
-      locale: const Locale('zh', 'CN'),
-      cancelText: '取消',
-      confirmText: '确定',
-      saveText: '保存',
     );
     if (picked == null) {
       return;
@@ -789,8 +781,7 @@ class _StepIndicator extends StatelessWidget {
                       : colors.softFill,
                   child: Text(
                     '${index + 1}',
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: AppTextStyles.caption(context).copyWith(
                       color: index <= stepIndex
                           ? colors.onStrong
                           : colors.textSecondary,
@@ -800,8 +791,7 @@ class _StepIndicator extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   labels[index],
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: AppTextStyles.caption(context).copyWith(
                     color: index <= stepIndex
                         ? colors.textPrimary
                         : colors.textSecondary,
