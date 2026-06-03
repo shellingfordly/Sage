@@ -9,6 +9,7 @@ import 'budget_management_page.dart';
 import 'category_management_page.dart';
 import 'data_backup_page.dart';
 import 'ledger_management_page.dart';
+import 'ledger_name_dialog.dart';
 import 'settings_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -387,7 +388,7 @@ class _SectionTitle extends StatelessWidget {
 }
 
 Future<void> _showRenameCurrentLedgerDialog(BuildContext context) async {
-  final name = await _showLedgerNameDialog(
+  final name = await showLedgerNameDialog(
     context,
     title: '编辑账本',
     confirmText: '保存',
@@ -399,46 +400,4 @@ Future<void> _showRenameCurrentLedgerDialog(BuildContext context) async {
       name: name,
     );
   }
-}
-
-Future<String?> _showLedgerNameDialog(
-  BuildContext context, {
-  required String title,
-  required String confirmText,
-  String? initialValue,
-}) async {
-  final controller = TextEditingController(text: initialValue ?? '');
-  final result = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        maxLength: 16,
-        decoration: const InputDecoration(
-          hintText: '请输入账本名称',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final name = controller.text.trim();
-            if (name.isEmpty) {
-              return;
-            }
-            Navigator.of(context).pop(name);
-          },
-          child: Text(confirmText),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
-  return result;
 }

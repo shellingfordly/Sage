@@ -6,6 +6,8 @@ import '../../models/ledger_book.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
+import 'ledger_merge_page.dart';
+import 'ledger_name_dialog.dart';
 
 class LedgerManagementPage extends StatelessWidget {
   const LedgerManagementPage({super.key});
@@ -27,20 +29,40 @@ class LedgerManagementPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FilledButton.icon(
-                    onPressed: () async {
-                      final name = await _showLedgerNameDialog(
-                        context,
-                        title: '新建账本',
-                        confirmText: '创建',
-                      );
-                      if (name == null) {
-                        return;
-                      }
-                      await ledgerStore.createLedger(name);
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('新建账本'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () async {
+                            final name = await showLedgerNameDialog(
+                              context,
+                              title: '新建账本',
+                              confirmText: '创建',
+                            );
+                            if (name == null) {
+                              return;
+                            }
+                            await ledgerStore.createLedger(name);
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('新建账本'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) => const LedgerMergePage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.merge_type_outlined),
+                          label: const Text('合并账本'),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -124,7 +146,7 @@ class _LedgerSlidableRow extends StatelessWidget {
   }
 
   Future<void> _renameLedger(BuildContext context) async {
-    final name = await _showLedgerNameDialog(
+    final name = await showLedgerNameDialog(
       context,
       title: '编辑账本',
       confirmText: '保存',
@@ -217,44 +239,3 @@ class _PanelDivider extends StatelessWidget {
   }
 }
 
-Future<String?> _showLedgerNameDialog(
-  BuildContext context, {
-  required String title,
-  required String confirmText,
-  String? initialValue,
-}) async {
-  final controller = TextEditingController(text: initialValue ?? '');
-  final result = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        maxLength: 16,
-        decoration: const InputDecoration(
-          hintText: '请输入账本名称',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final name = controller.text.trim();
-            if (name.isEmpty) {
-              return;
-            }
-            Navigator.of(context).pop(name);
-          },
-          child: Text(confirmText),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
-  return result;
-}

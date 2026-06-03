@@ -359,6 +359,18 @@ class LedgerStore extends ChangeNotifier {
     );
   }
 
+  /// 将已筛选的记录合并到目标账本，源账本记录保持不变。
+  Future<int> mergeRecordsToLedger({
+    required String targetLedgerId,
+    required List<LedgerRecord> records,
+  }) {
+    return importRecords(
+      records,
+      ledgerId: targetLedgerId,
+      skipDuplicates: false,
+    );
+  }
+
   bool isDefaultLedger(String ledgerId) => ledgerId == defaultLedgerId;
 
   Future<bool> createCategory({
