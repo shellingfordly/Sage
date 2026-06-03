@@ -1,47 +1,54 @@
 import 'package:flutter/material.dart';
 
+import '../sheets/app_form_sheet.dart';
+
 Future<String?> showLedgerNameDialog(
   BuildContext context, {
   required String title,
   required String confirmText,
   String? initialValue,
+  String? subtitle,
 }) {
-  return showDialog<String>(
-    context: context,
-    useRootNavigator: true,
-    barrierDismissible: true,
-    builder: (dialogContext) => _LedgerNameDialog(
+  return showAppFormSheet<String>(
+    context,
+    sheet: _LedgerNameSheet(
       title: title,
+      subtitle: subtitle,
       confirmText: confirmText,
       initialValue: initialValue,
     ),
   );
 }
 
-class _LedgerNameDialog extends StatefulWidget {
-  const _LedgerNameDialog({
+class _LedgerNameSheet extends StatefulWidget {
+  const _LedgerNameSheet({
     required this.title,
     required this.confirmText,
+    this.subtitle,
     this.initialValue,
   });
 
   final String title;
+  final String? subtitle;
   final String confirmText;
   final String? initialValue;
 
   @override
-  State<_LedgerNameDialog> createState() => _LedgerNameDialogState();
+  State<_LedgerNameSheet> createState() => _LedgerNameSheetState();
 }
 
-class _LedgerNameDialogState extends State<_LedgerNameDialog> {
+class _LedgerNameSheetState extends State<_LedgerNameSheet> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
+  bool _canSubmit = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue ?? '');
     _focusNode = FocusNode();
+    _canSubmit = _controller.text.trim().isNotEmpty;
+    _controller.addListener(_syncSubmitState);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focusNode.requestFocus();
@@ -49,8 +56,16 @@ class _LedgerNameDialogState extends State<_LedgerNameDialog> {
     });
   }
 
+  void _syncSubmitState() {
+    final enabled = _controller.text.trim().isNotEmpty;
+    if (enabled != _canSubmit) {
+      setState(() => _canSubmit = enabled);
+    }
+  }
+
   @override
   void dispose() {
+    _controller.removeListener(_syncSubmitState);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -66,33 +81,21 @@ class _LedgerNameDialogState extends State<_LedgerNameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          autofocus: true,
-          maxLength: 16,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _submit(),
-          decoration: const InputDecoration(
-            hintText: '请输入账本名称',
-            border: OutlineInputBorder(),
-          ),
-        ),
+    return AppFormSheet(
+      title: widget.title,
+      subtitle: widget.subtitle ?? '最多 16 个字符',
+      confirmText: widget.confirmText,
+      confirmEnabled: _canSubmit,
+      onConfirm: _submit,
+      child: AppFormTextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        label: '账本名称',
+        hintText: '请输入账本名称',
+        maxLength: 16,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(widget.confirmText),
-        ),
-      ],
     );
   }
 }

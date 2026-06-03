@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/ledger_category.dart';
 import '../../models/ledger_record.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
+import '../sheets/app_form_sheet.dart';
 
 class CategoryDialogResult {
   const CategoryDialogResult({required this.name, required this.iconKey});
@@ -20,9 +22,9 @@ Future<CategoryDialogResult?> showCategoryEditorDialog(
   String? initialName,
   String? initialIconKey,
 }) {
-  return showDialog<CategoryDialogResult>(
-    context: context,
-    builder: (dialogContext) => _CategoryEditorDialog(
+  return showAppFormSheet<CategoryDialogResult>(
+    context,
+    sheet: _CategoryEditorSheet(
       type: type,
       title: title,
       confirmText: confirmText,
@@ -32,8 +34,8 @@ Future<CategoryDialogResult?> showCategoryEditorDialog(
   );
 }
 
-class _CategoryEditorDialog extends StatefulWidget {
-  const _CategoryEditorDialog({
+class _CategoryEditorSheet extends StatefulWidget {
+  const _CategoryEditorSheet({
     required this.type,
     required this.title,
     required this.confirmText,
@@ -48,10 +50,10 @@ class _CategoryEditorDialog extends StatefulWidget {
   final String? initialIconKey;
 
   @override
-  State<_CategoryEditorDialog> createState() => _CategoryEditorDialogState();
+  State<_CategoryEditorSheet> createState() => _CategoryEditorSheetState();
 }
 
-class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
+class _CategoryEditorSheetState extends State<_CategoryEditorSheet> {
   late final TextEditingController _nameController;
   late String _selectedIconKey;
   final _formKey = GlobalKey<FormState>();
@@ -85,67 +87,66 @@ class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: SizedBox(
-        width: 360,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                autofocus: true,
-                maxLength: 12,
-                decoration: const InputDecoration(
-                  labelText: '分类名称',
-                  hintText: '例如：早餐、房租、副业',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return '请输入分类名称';
-                  }
-                  return null;
-                },
+    final typeLabel =
+        widget.type == LedgerRecordType.expense ? '支出分类' : '收入分类';
+
+    return AppFormSheet(
+      title: widget.title,
+      subtitle: typeLabel,
+      confirmText: widget.confirmText,
+      maxHeightFactor: 0.88,
+      onConfirm: _submit,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppFormTextField(
+              controller: _nameController,
+              label: '分类名称',
+              hintText: '例如：早餐、房租、副业',
+              maxLength: 12,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              validator: (value) {
+                if ((value ?? '').trim().isEmpty) {
+                  return '请输入分类名称';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 20),
+            const AppFormSectionLabel(label: '选择图标'),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: categoryIconOptions.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 0.88,
               ),
-              const SizedBox(height: 10),
-              Text('选择图标', style: AppTextStyles.bodyStrong(context)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final option in categoryIconOptions)
-                    _IconChoiceChip(
-                      option: option,
-                      selected: option.key == _selectedIconKey,
-                      onTap: () => setState(() => _selectedIconKey = option.key),
-                    ),
-                ],
-              ),
-            ],
-          ),
+              itemBuilder: (context, index) {
+                final option = categoryIconOptions[index];
+                return _IconChoiceTile(
+                  option: option,
+                  selected: option.key == _selectedIconKey,
+                  onTap: () => setState(() => _selectedIconKey = option.key),
+                );
+              },
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(widget.confirmText),
-        ),
-      ],
     );
   }
 }
 
-class _IconChoiceChip extends StatelessWidget {
-  const _IconChoiceChip({
+class _IconChoiceTile extends StatelessWidget {
+  const _IconChoiceTile({
     required this.option,
     required this.selected,
     required this.onTap,
@@ -158,26 +159,44 @@ class _IconChoiceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          color: selected ? colors.primarySoft : colors.softFill,
-          border: Border.all(
-            color: selected ? colors.primary : colors.surfaceBorder,
-            width: selected ? 1.5 : 1,
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: AppRadii.card,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: selected ? colors.primarySoft : colors.softFill,
+            borderRadius: AppRadii.card,
+            border: Border.all(
+              color: selected ? colors.primary : colors.surfaceBorder,
+              width: selected ? 1.5 : 1,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(option.icon, size: 16, color: colors.textBody),
-            const SizedBox(width: 6),
-            Text(option.label, style: AppTextStyles.bodyMuted(context)),
-          ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                option.icon,
+                size: 22,
+                color: selected ? colors.primary : colors.textBody,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                option.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.caption(context).copyWith(
+                  color: selected ? colors.primary : colors.textSecondary,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
