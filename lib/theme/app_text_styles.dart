@@ -44,6 +44,19 @@ class AppTextStyles {
     );
   }
 
+  static TextStyle caption(BuildContext context) {
+    return Theme.of(context).textTheme.labelSmall!.copyWith(
+      color: context.colors.textSecondary,
+      letterSpacing: 0,
+    );
+  }
+
+  static TextStyle button(BuildContext context) {
+    return Theme.of(context).textTheme.labelLarge!.copyWith(
+      letterSpacing: 0,
+    );
+  }
+
   static TextStyle tileValue(BuildContext context) {
     return Theme.of(context).textTheme.titleMedium!.copyWith(
       color: context.colors.textPrimary,
@@ -54,6 +67,14 @@ class AppTextStyles {
 
   static TextStyle amount(BuildContext context, Color color) {
     return Theme.of(context).textTheme.bodyLarge!.copyWith(
+      color: color,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+    );
+  }
+
+  static TextStyle amountDisplay(BuildContext context, Color color) {
+    return Theme.of(context).textTheme.headlineMedium!.copyWith(
       color: color,
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
@@ -83,7 +104,7 @@ class AppTextStyles {
   }
 
   static TextStyle chip(BuildContext context, {required bool selected}) {
-    return Theme.of(context).textTheme.bodySmall!.copyWith(
+    return Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: selected ? context.colors.onStrong : context.colors.textBody,
       fontWeight: FontWeight.w700,
       letterSpacing: 0,

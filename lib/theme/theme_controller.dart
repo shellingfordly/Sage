@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_font_scale.dart';
 import 'theme_preferences.dart';
 
 final themeController = ThemeController();
@@ -60,6 +61,7 @@ class ThemeController extends ValueNotifier<AppThemeOption>
   ThemeController()
     : _modePreference = ThemeModePreference.light,
       _colorFamily = AppColorFamily.white,
+      _fontScale = AppFontScale.medium,
       _preferences = ThemePreferences(),
       super(
         _buildTheme(
@@ -72,6 +74,7 @@ class ThemeController extends ValueNotifier<AppThemeOption>
 
   ThemeModePreference _modePreference;
   AppColorFamily _colorFamily;
+  AppFontScale _fontScale;
   final ThemePreferences _preferences;
   bool _loaded = false;
 
@@ -119,6 +122,8 @@ class ThemeController extends ValueNotifier<AppThemeOption>
 
   AppColorFamily get colorFamily => _colorFamily;
 
+  AppFontScale get fontScale => _fontScale;
+
   AppColorFamilyOption get currentColorFamilyOption {
     return colorFamilies.firstWhere((option) => option.family == _colorFamily);
   }
@@ -128,6 +133,7 @@ class ThemeController extends ValueNotifier<AppThemeOption>
     if (snapshot != null) {
       _modePreference = snapshot.mode;
       _colorFamily = snapshot.colorFamily;
+      _fontScale = snapshot.fontScale;
     }
     _loaded = true;
     _applyTheme(persist: false);
@@ -146,6 +152,14 @@ class ThemeController extends ValueNotifier<AppThemeOption>
       return;
     }
     _colorFamily = family;
+    _applyTheme();
+  }
+
+  void setFontScale(AppFontScale scale) {
+    if (_fontScale == scale) {
+      return;
+    }
+    _fontScale = scale;
     _applyTheme();
   }
 
@@ -169,7 +183,11 @@ class ThemeController extends ValueNotifier<AppThemeOption>
   void _applyTheme({bool persist = true}) {
     value = _buildTheme(isDarkMode: _effectiveIsDarkMode, family: _colorFamily);
     if (persist && _loaded) {
-      _preferences.save(mode: _modePreference, colorFamily: _colorFamily);
+      _preferences.save(
+        mode: _modePreference,
+        colorFamily: _colorFamily,
+        fontScale: _fontScale,
+      );
     }
   }
 

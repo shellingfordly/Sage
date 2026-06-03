@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../theme/app_font_scale.dart';
 import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 import '../../theme/theme_controller.dart';
@@ -22,6 +23,8 @@ class SettingsPage extends StatelessWidget {
               SizedBox(height: 20),
               _SectionTitle(title: '外观'),
               SizedBox(height: 12),
+              _FontScalePanel(),
+              SizedBox(height: 20),
               _ThemePanel(),
             ],
           ),
@@ -177,6 +180,143 @@ class _ModeIconButton extends StatelessWidget {
           icon,
           size: 20,
           color: selected ? colors.onStrong : colors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+class _FontScalePanel extends StatelessWidget {
+  const _FontScalePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: AppDecorations.surface(context),
+      child: ValueListenableBuilder<AppThemeOption>(
+        valueListenable: themeController,
+        builder: (context, _, child) {
+          final colors = context.colors;
+          final scale = themeController.fontScale;
+
+          return Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: AppDecorations.softFill(context),
+                  child: Icon(
+                    Icons.format_size_outlined,
+                    color: colors.primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '字号大小',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyStrong(context),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '当前：${scale.label}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyMuted(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _FontScaleSelector(
+                  selected: scale,
+                  onSelected: themeController.setFontScale,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FontScaleSelector extends StatelessWidget {
+  const _FontScaleSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final AppFontScale selected;
+  final ValueChanged<AppFontScale> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.softFill,
+        borderRadius: AppRadii.card,
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final option in AppFontScale.values) ...[
+            _FontScaleButton(
+              label: option.label,
+              selected: selected == option,
+              onTap: () => onSelected(option),
+            ),
+            if (option != AppFontScale.values.last) const SizedBox(width: 2),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FontScaleButton extends StatelessWidget {
+  const _FontScaleButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? colors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.chip(context, selected: selected).copyWith(
+            fontSize: selected ? 13 : 12,
+          ),
         ),
       ),
     );
