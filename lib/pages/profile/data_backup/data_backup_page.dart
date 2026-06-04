@@ -13,6 +13,7 @@ import 'data_excel_import_service.dart';
 import 'data_export_service.dart';
 import 'data_pdf_import_service.dart';
 import 'data_preview_page.dart';
+import 'data_wechat_import_service.dart';
 
 class DataBackupPage extends StatefulWidget {
   const DataBackupPage({super.key});
@@ -26,6 +27,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
   static const _excelImportService = DataExcelImportService();
   static const _pdfImportService = DataPdfImportService();
   static const _alipayImportService = DataAlipayImportService();
+  static const _wechatImportService = DataWechatImportService();
 
   ExportRange _range = ExportRange.month;
   DateTimeRange? _customRange;
@@ -80,6 +82,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
                 onImportExcel: _importRecords,
                 onImportPdf: _importBankPdfBill,
                 onImportAlipay: _importAlipayBill,
+                onImportWechat: _importWechatBill,
               ),
             ],
           ),
@@ -187,6 +190,18 @@ class _DataBackupPageState extends State<DataBackupPage> {
     }
   }
 
+  Future<void> _importWechatBill() async {
+    setState(() => _busy = true);
+    try {
+      final result = await _wechatImportService.importFromFilePicker(context);
+      _handleWechatImportResult(result);
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
   void _handleExcelImportResult(DataExcelImportResult result) {
     switch (result) {
       case DataExcelImportSuccess(:final message):
@@ -220,6 +235,19 @@ class _DataBackupPageState extends State<DataBackupPage> {
       case DataAlipayImportFailure(:final message):
         _showMessage(message);
       case DataAlipayImportCancelled(:final message):
+        if (message != null) {
+          _showMessage(message);
+        }
+    }
+  }
+
+  void _handleWechatImportResult(DataWechatImportResult result) {
+    switch (result) {
+      case DataWechatImportSuccess(:final message):
+        _showMessage(message);
+      case DataWechatImportFailure(:final message):
+        _showMessage(message);
+      case DataWechatImportCancelled(:final message):
         if (message != null) {
           _showMessage(message);
         }
@@ -314,12 +342,14 @@ class _ImportSection extends StatelessWidget {
     required this.onImportExcel,
     required this.onImportPdf,
     required this.onImportAlipay,
+    required this.onImportWechat,
   });
 
   final bool busy;
   final VoidCallback onImportExcel;
   final VoidCallback onImportPdf;
   final VoidCallback onImportAlipay;
+  final VoidCallback onImportWechat;
 
   @override
   Widget build(BuildContext context) {
@@ -359,8 +389,17 @@ class _ImportSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onImportWechat,
+              icon: const Icon(Icons.chat_outlined),
+              label: const Text('导入微信账单'),
+            ),
+          ),
+          const SizedBox(height: 10),
           Text(
-            'Excel / CSV 按固定列导入。PDF 支持标准五列表格流水。支付宝账单请从 App 导出 CSV，自动跳过还款、退款与关闭交易，解析后可审核。',
+            'Excel / CSV 按固定列导入。PDF 支持标准五列表格流水。支付宝请导出 CSV，微信请导出 xlsx，自动跳过退款与已退款交易，解析后可审核。',
             style: AppTextStyles.bodyMuted(context),
           ),
         ],
