@@ -9,6 +9,7 @@ class LedgerRecord {
     required this.category,
     required this.createdAt,
     this.notes = '',
+    this.source = '',
   });
 
   final String id;
@@ -18,6 +19,8 @@ class LedgerRecord {
   final String category;
   final DateTime createdAt;
   final String notes;
+  /// 记录方式，如银行卡、微信、方式A 等。
+  final String source;
 
   bool get isIncome => type == LedgerRecordType.income;
 
@@ -30,6 +33,7 @@ class LedgerRecord {
       'category': category,
       'createdAt': createdAt.toIso8601String(),
       if (notes.isNotEmpty) 'notes': notes,
+      if (source.isNotEmpty) 'source': source,
     };
   }
 
@@ -42,6 +46,7 @@ class LedgerRecord {
       category: json['category'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       notes: json['notes'] as String? ?? '',
+      source: json['source'] as String? ?? '',
     );
   }
 
@@ -53,6 +58,7 @@ class LedgerRecord {
     String? category,
     DateTime? createdAt,
     String? notes,
+    String? source,
   }) {
     return LedgerRecord(
       id: id ?? this.id,
@@ -62,6 +68,7 @@ class LedgerRecord {
       category: category ?? this.category,
       createdAt: createdAt ?? this.createdAt,
       notes: notes ?? this.notes,
+      source: source ?? this.source,
     );
   }
 }

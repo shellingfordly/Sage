@@ -159,6 +159,7 @@ class LedgerStore extends ChangeNotifier {
     required String category,
     required DateTime createdAt,
     String notes = '',
+    String source = '',
   }) async {
     final record = LedgerRecord(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -168,6 +169,7 @@ class LedgerStore extends ChangeNotifier {
       category: category,
       createdAt: createdAt,
       notes: notes.trim(),
+      source: source.trim(),
     );
 
     _currentRecords.insert(0, record);
@@ -183,6 +185,7 @@ class LedgerStore extends ChangeNotifier {
     required String category,
     required DateTime createdAt,
     String notes = '',
+    String source = '',
   }) async {
     final records = _currentRecords;
     final index = records.indexWhere((record) => record.id == recordId);
@@ -198,6 +201,7 @@ class LedgerStore extends ChangeNotifier {
       category: category,
       createdAt: createdAt,
       notes: notes.trim(),
+      source: source.trim(),
     );
     records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     await _save();
@@ -253,10 +257,22 @@ class LedgerStore extends ChangeNotifier {
         category: categoryName,
         createdAt: source.createdAt,
         notes: source.notes.trim(),
+        source: source.source.trim(),
       );
       final fingerprint = _recordFingerprint(normalized);
-      if (skipDuplicates && existingFingerprints.contains(fingerprint)) {
-        continue;
+      if (skipDuplicates) {
+        final existingIndex = targetRecords.indexWhere(
+          (record) => _recordFingerprint(record) == fingerprint,
+        );
+        if (existingIndex >= 0) {
+          final existing = targetRecords[existingIndex];
+          if (normalized.source.isNotEmpty && existing.source.isEmpty) {
+            targetRecords[existingIndex] = existing.copyWith(
+              source: normalized.source,
+            );
+          }
+          continue;
+        }
       }
       targetRecords.add(normalized);
       existingFingerprints.add(fingerprint);
@@ -503,14 +519,7 @@ class LedgerStore extends ChangeNotifier {
       for (var i = 0; i < records.length; i++) {
         final record = records[i];
         if (record.type == target.type && record.category == target.name) {
-          records[i] = LedgerRecord(
-            id: record.id,
-            title: record.title,
-            amount: record.amount,
-            type: record.type,
-            category: trimmed,
-            createdAt: record.createdAt,
-          );
+          records[i] = record.copyWith(category: trimmed);
         }
       }
     }
@@ -542,14 +551,7 @@ class LedgerStore extends ChangeNotifier {
     for (var i = 0; i < records.length; i++) {
       final record = records[i];
       if (record.type == target.type && record.category == target.name) {
-        records[i] = LedgerRecord(
-          id: record.id,
-          title: record.title,
-          amount: record.amount,
-          type: record.type,
-          category: fallbackName,
-          createdAt: record.createdAt,
-        );
+        records[i] = record.copyWith(category: fallbackName);
       }
     }
     await _save();
