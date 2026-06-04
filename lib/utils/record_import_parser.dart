@@ -152,6 +152,7 @@ List<String> recordToPreviewCells(LedgerRecord record) {
     record.title,
     record.amount.toStringAsFixed(2),
     record.notes,
+    record.source,
   ];
 }
 

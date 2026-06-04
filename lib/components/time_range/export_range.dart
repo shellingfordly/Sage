@@ -21,7 +21,7 @@ const defaultExportRangePresets = [
   ExportRange.lastYear,
 ];
 
-const exportPreviewColumns = ['日期', '类型', '分类', '名称', '金额', '备注'];
+const exportPreviewColumns = ['日期', '类型', '分类', '名称', '金额', '备注', '方式'];
 
 String exportRangeLabel(ExportRange range) {
   return switch (range) {

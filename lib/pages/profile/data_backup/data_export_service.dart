@@ -66,6 +66,7 @@ class DataExportService {
       xl.TextCellValue('名称'),
       xl.TextCellValue('金额'),
       xl.TextCellValue('备注'),
+      xl.TextCellValue('方式'),
     ]);
 
     for (final record in records) {
@@ -76,6 +77,7 @@ class DataExportService {
         xl.TextCellValue(record.title),
         xl.DoubleCellValue(record.amount),
         xl.TextCellValue(record.notes),
+        xl.TextCellValue(record.source),
       ]);
     }
 
