@@ -9,6 +9,7 @@ class BankBillRawRow {
     required this.balance,
     required this.transactionSummary,
     this.sourceLine,
+    this.importSource,
   });
 
   final DateTime date;
@@ -18,6 +19,8 @@ class BankBillRawRow {
   final double balance;
   final String transactionSummary;
   final String? sourceLine;
+  /// 导入方式，如银行卡、方式A 等。
+  final String? importSource;
 }
 
 /// 解析并完成分类的单条记录。

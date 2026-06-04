@@ -3,9 +3,46 @@ import 'dart:typed_data';
 import 'bank_bill_models.dart';
 import 'bank_bill_pdf_extractor.dart';
 import 'bank_bill_template.dart';
+import 'templates/alipay_csv_template.dart';
 
 class BankBillImportService {
-  const BankBillImportService();
+  const BankBillImportService({
+    AlipayCsvBillTemplate? alipayCsvTemplate,
+  }) : _alipayCsvTemplate = alipayCsvTemplate ?? const AlipayCsvBillTemplate();
+
+  final AlipayCsvBillTemplate _alipayCsvTemplate;
+
+  BankBillParseResult parseCsv(Uint8List bytes) {
+    try {
+      if (!_alipayCsvTemplate.canParseBytes(bytes)) {
+        return const BankBillParseResult(
+          templateId: '',
+          templateName: '',
+          fatalError: '不是支持的账单 CSV 格式，请使用支付宝导出的交易明细',
+        );
+      }
+
+      final result = _alipayCsvTemplate.parseBytes(bytes);
+      if (result.hasRecords) {
+        return result;
+      }
+      if (result.fatalError != null) {
+        return result;
+      }
+
+      return BankBillParseResult(
+        templateId: _alipayCsvTemplate.id,
+        templateName: _alipayCsvTemplate.displayName,
+        fatalError: '未能从 CSV 中解析出有效账单行，请确认文件为${_alipayCsvTemplate.displayName}格式',
+      );
+    } catch (error) {
+      return BankBillParseResult(
+        templateId: '',
+        templateName: '',
+        fatalError: 'CSV 解析失败：$error',
+      );
+    }
+  }
 
   Future<BankBillParseResult> parsePdf(
     Uint8List bytes, {
