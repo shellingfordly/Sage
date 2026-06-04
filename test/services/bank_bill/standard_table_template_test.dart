@@ -46,6 +46,7 @@ void main() {
       expect(built.record.title, '工资');
       expect(built.record.category, '工资');
       expect(built.record.type, LedgerRecordType.income);
+      expect(built.record.source, '银行卡');
     });
 
     test('parse maps sign to record type and strips balance from summary', () {
