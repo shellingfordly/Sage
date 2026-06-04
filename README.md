@@ -1,8 +1,8 @@
-# Ledger App
+# Sage
 
 > **English** · [简体中文](README.zh-CN.md)
 
-A Flutter-based **local-first** personal ledger app. Track income and expenses across multiple books, set budgets, visualize spending, filter transactions, and get on-device AI insights—without requiring a cloud account.
+**Sage** is a Flutter-based **local-first** personal ledger app. Track income and expenses across multiple books, set budgets, visualize spending, filter transactions, and get on-device AI insights—without requiring a cloud account.
 
 ---
 
