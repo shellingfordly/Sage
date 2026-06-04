@@ -6,7 +6,6 @@ import '../../../models/ledger_category.dart';
 import '../../../models/ledger_record.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_styles.dart';
-import '../../../theme/app_text_styles.dart';
 
 class CategoryFormPage extends StatefulWidget {
   const CategoryFormPage({
@@ -26,6 +25,7 @@ class CategoryFormPage extends StatefulWidget {
 
 class _CategoryFormPageState extends State<CategoryFormPage> {
   late final TextEditingController _nameController;
+  late LedgerRecordType _selectedType;
   late String _selectedIconKey;
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
@@ -33,10 +33,11 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
   @override
   void initState() {
     super.initState();
+    _selectedType = widget.category?.type ?? widget.type;
     _nameController = TextEditingController(text: widget.category?.name ?? '');
     _selectedIconKey =
         widget.category?.iconKey ??
-        iconKeyForCategoryName('其他', widget.type);
+        iconKeyForCategoryName('其他', _selectedType);
   }
 
   @override
@@ -60,7 +61,7 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
             iconKey: _selectedIconKey,
           )
         : await ledgerStore.createCategory(
-            type: widget.type,
+            type: _selectedType,
             name: name,
             iconKey: _selectedIconKey,
           );
@@ -84,8 +85,6 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final typeLabel =
-        widget.type == LedgerRecordType.expense ? '支出分类' : '收入分类';
 
     return Scaffold(
       appBar: AppBar(
@@ -102,9 +101,25 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        typeLabel,
-                        style: AppTextStyles.pageSubtitle(context),
+                      SegmentedButton<LedgerRecordType>(
+                        segments: const [
+                          ButtonSegment(
+                            value: LedgerRecordType.expense,
+                            label: Text('支出分类'),
+                            icon: Icon(Icons.trending_down),
+                          ),
+                          ButtonSegment(
+                            value: LedgerRecordType.income,
+                            label: Text('收入分类'),
+                            icon: Icon(Icons.trending_up),
+                          ),
+                        ],
+                        selected: {_selectedType},
+                        onSelectionChanged: widget.isEditing || _saving
+                            ? null
+                            : (values) {
+                                setState(() => _selectedType = values.first);
+                              },
                       ),
                       const SizedBox(height: 20),
                       AppFormTextField(
