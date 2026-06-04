@@ -21,8 +21,6 @@ class SettingsPage extends StatelessWidget {
             children: const [
               _DarkModePanel(),
               SizedBox(height: 20),
-              _SectionTitle(title: '外观'),
-              SizedBox(height: 12),
               _FontScalePanel(),
               SizedBox(height: 20),
               _ThemePanel(),
