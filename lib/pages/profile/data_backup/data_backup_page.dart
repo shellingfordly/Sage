@@ -8,6 +8,7 @@ import '../../../models/ledger_record.dart';
 import '../../../theme/app_styles.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../utils/record_import_parser.dart';
+import 'data_alipay_import_service.dart';
 import 'data_excel_import_service.dart';
 import 'data_export_service.dart';
 import 'data_pdf_import_service.dart';
@@ -24,6 +25,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
   static const _exportService = DataExportService();
   static const _excelImportService = DataExcelImportService();
   static const _pdfImportService = DataPdfImportService();
+  static const _alipayImportService = DataAlipayImportService();
 
   ExportRange _range = ExportRange.month;
   DateTimeRange? _customRange;
@@ -77,6 +79,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
                 busy: _busy,
                 onImportExcel: _importRecords,
                 onImportPdf: _importBankPdfBill,
+                onImportAlipay: _importAlipayBill,
               ),
             ],
           ),
@@ -172,6 +175,18 @@ class _DataBackupPageState extends State<DataBackupPage> {
     }
   }
 
+  Future<void> _importAlipayBill() async {
+    setState(() => _busy = true);
+    try {
+      final result = await _alipayImportService.importFromFilePicker(context);
+      _handleAlipayImportResult(result);
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
   void _handleExcelImportResult(DataExcelImportResult result) {
     switch (result) {
       case DataExcelImportSuccess(:final message):
@@ -192,6 +207,19 @@ class _DataBackupPageState extends State<DataBackupPage> {
       case DataPdfImportFailure(:final message):
         _showMessage(message);
       case DataPdfImportCancelled(:final message):
+        if (message != null) {
+          _showMessage(message);
+        }
+    }
+  }
+
+  void _handleAlipayImportResult(DataAlipayImportResult result) {
+    switch (result) {
+      case DataAlipayImportSuccess(:final message):
+        _showMessage(message);
+      case DataAlipayImportFailure(:final message):
+        _showMessage(message);
+      case DataAlipayImportCancelled(:final message):
         if (message != null) {
           _showMessage(message);
         }
@@ -285,11 +313,13 @@ class _ImportSection extends StatelessWidget {
     required this.busy,
     required this.onImportExcel,
     required this.onImportPdf,
+    required this.onImportAlipay,
   });
 
   final bool busy;
   final VoidCallback onImportExcel;
   final VoidCallback onImportPdf;
+  final VoidCallback onImportAlipay;
 
   @override
   Widget build(BuildContext context) {
@@ -320,8 +350,17 @@ class _ImportSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onImportAlipay,
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              label: const Text('导入支付宝账单'),
+            ),
+          ),
+          const SizedBox(height: 10),
           Text(
-            'Excel / CSV 按固定列导入。PDF 支持标准五列表格流水（日期、金额、交易摘要），解析后可审核并删除不需要的记录。',
+            'Excel / CSV 按固定列导入。PDF 支持标准五列表格流水。支付宝账单请从 App 导出 CSV，自动跳过还款、退款与关闭交易，解析后可审核。',
             style: AppTextStyles.bodyMuted(context),
           ),
         ],
