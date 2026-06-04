@@ -6,7 +6,7 @@ import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/ledger_formatters.dart';
 import 'budget_management_page.dart';
-import 'category_management_page.dart';
+import 'category/category_management_page.dart';
 import 'data_backup/data_backup_page.dart';
 import 'ledger/ledger_management_page.dart';
 import '../../components/dialogs/ledger_name_dialog.dart';

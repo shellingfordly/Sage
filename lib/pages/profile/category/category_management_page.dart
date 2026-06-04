@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
-import '../../data/ledger_store.dart';
-import '../../models/ledger_category.dart';
-import '../../models/ledger_record.dart';
-import '../../theme/app_colors.dart';
-import '../../theme/app_styles.dart';
-import '../../theme/app_text_styles.dart';
-import '../../components/dialogs/category_editor_dialog.dart';
-import '../../components/dialogs/confirm_dialog.dart';
+import '../../../data/ledger_store.dart';
+import '../../../models/ledger_category.dart';
+import '../../../models/ledger_record.dart';
+import '../../../theme/app_colors.dart';
+import '../../../theme/app_styles.dart';
+import '../../../theme/app_text_styles.dart';
+import '../../../components/dialogs/confirm_dialog.dart';
+import 'category_form_page.dart';
 
 class CategoryManagementPage extends StatefulWidget {
   const CategoryManagementPage({super.key});
@@ -20,6 +20,42 @@ class CategoryManagementPage extends StatefulWidget {
 class _CategoryManagementPageState extends State<CategoryManagementPage> {
   LedgerRecordType _selectedType = LedgerRecordType.expense;
 
+  Future<void> _openCreatePage() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => CategoryFormPage(type: _selectedType),
+      ),
+    );
+  }
+
+  Future<void> _openEditPage(LedgerCategory category) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => CategoryFormPage(
+          type: category.type,
+          category: category,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteCategory(LedgerCategory category) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除分类',
+      content: '确认删除「${category.name}」吗？该分类历史记录会归类到“其他”。',
+      confirmText: '删除',
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await ledgerStore.deleteCategory(category.id);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已删除分类')));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +63,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
         title: const Text('分类管理'),
         actions: [
           TextButton.icon(
-            onPressed: _showCreateDialog,
+            onPressed: _openCreatePage,
             icon: const Icon(Icons.add),
             label: const Text('新建分类'),
           ),
@@ -120,7 +156,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                                   children: [
                                     _CategorySlidableRow(
                                       category: category,
-                                      onEdit: () => _showEditDialog(category),
+                                      onEdit: () => _openEditPage(category),
                                       onDelete: () => _deleteCategory(category),
                                     ),
                                     if (!isLast)
@@ -146,75 +182,6 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _showCreateDialog() async {
-    final result = await showCategoryEditorDialog(
-      context,
-      type: _selectedType,
-      title: '新增分类',
-      confirmText: '创建',
-    );
-    if (result == null) {
-      return;
-    }
-    final success = await ledgerStore.createCategory(
-      type: _selectedType,
-      name: result.name,
-      iconKey: result.iconKey,
-    );
-    if (!mounted) {
-      return;
-    }
-    if (!success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('分类名称已存在或无效')));
-    }
-  }
-
-  Future<void> _showEditDialog(LedgerCategory category) async {
-    final result = await showCategoryEditorDialog(
-      context,
-      type: category.type,
-      title: '编辑分类',
-      confirmText: '保存',
-      initialName: category.name,
-      initialIconKey: category.iconKey,
-    );
-    if (result == null) {
-      return;
-    }
-    final success = await ledgerStore.updateCategory(
-      categoryId: category.id,
-      name: result.name,
-      iconKey: result.iconKey,
-    );
-    if (!mounted) {
-      return;
-    }
-    if (!success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('分类名称已存在或无效')));
-    }
-  }
-
-  Future<void> _deleteCategory(LedgerCategory category) async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: '删除分类',
-      content: '确认删除「${category.name}」吗？该分类历史记录会归类到“其他”。',
-      confirmText: '删除',
-    );
-    if (confirmed != true) {
-      return;
-    }
-    await ledgerStore.deleteCategory(category.id);
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已删除分类')));
   }
 }
 
