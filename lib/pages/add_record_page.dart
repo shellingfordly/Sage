@@ -6,6 +6,7 @@ import '../models/ledger_record.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
+import '../components/fields/read_only_method_field.dart';
 import '../components/sheets/category_picker_sheet.dart';
 import '../components/pickers/record_date_picker.dart';
 
@@ -54,6 +55,9 @@ class _AddRecordPageState extends State<AddRecordPage> {
   bool _saving = false;
 
   bool get _isEditing => widget.editingRecord != null;
+
+  bool get _showMethod =>
+      _isEditing && widget.editingRecord!.source.isNotEmpty;
 
   @override
   void initState() {
@@ -181,6 +185,10 @@ class _AddRecordPageState extends State<AddRecordPage> {
                   onSelected: (name) => setState(() => _category = name),
                 ),
                 const SizedBox(height: 12),
+                if (_showMethod) ...[
+                  ReadOnlyMethodField(value: widget.editingRecord!.source),
+                  const SizedBox(height: 12),
+                ],
                 TextFormField(
                   controller: _notesController,
                   enabled: !_saving,
@@ -270,6 +278,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
         category: _category,
         createdAt: _selectedDate,
         notes: _notesController.text,
+        source: editingRecord.source,
       );
     }
 

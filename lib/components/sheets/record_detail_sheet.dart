@@ -12,11 +12,19 @@ Future<void> showRecordDetailSheet(
   BuildContext context, {
   required LedgerRecord record,
 }) {
+  var latest = record;
+  for (final item in ledgerStore.records) {
+    if (item.id == record.id) {
+      latest = item;
+      break;
+    }
+  }
+
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (sheetContext) => _RecordDetailSheet(record: record),
+    builder: (sheetContext) => _RecordDetailSheet(record: latest),
   );
 }
 
@@ -93,6 +101,11 @@ class _RecordDetailSheet extends StatelessWidget {
               label: '时间',
               value: _formatFullDateTime(record.createdAt),
             ),
+            const SizedBox(height: 10),
+            if (record.source.isNotEmpty) ...[
+              _DetailRow(label: '方式', value: record.source),
+              const SizedBox(height: 10),
+            ],
             if (record.notes.isNotEmpty) ...[
               const SizedBox(height: 10),
               _DetailRow(label: '备注', value: record.notes),

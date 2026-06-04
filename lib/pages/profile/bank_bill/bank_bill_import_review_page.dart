@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../../../components/fields/read_only_method_field.dart';
 import '../../../data/ledger_store.dart';
 import '../../../models/ledger_category.dart';
 import '../../../models/ledger_record.dart';
 import '../../../services/bank_bill/bank_bill_models.dart';
 import '../../../services/bank_bill/bank_bill_record_builder.dart';
+import '../../../services/bank_bill/bill_import_source.dart';
 import '../../../services/bank_bill/templates/standard_table_template.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_styles.dart';
@@ -64,7 +66,7 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
     return _items.where((item) {
       final record = item.record;
       final haystack =
-          '${record.title} ${record.category} ${record.notes} ${item.categoryReason}';
+          '${record.title} ${record.category} ${record.notes} ${record.source} ${item.categoryReason}';
       return _matchesQuery(haystack);
     }).toList();
   }
@@ -154,7 +156,7 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
       type: LedgerRecordType.expense,
       category: '其他',
       createdAt: DateTime.now(),
-      notes: '',
+      source: BillImportSource.unknown,
     );
   }
 
@@ -298,6 +300,16 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
   }
 }
 
+String _reviewSubtitle(LedgerRecord record) {
+  final parts = <String>[
+    record.isIncome ? '收入' : '支出',
+    record.category,
+    if (record.source.isNotEmpty) record.source,
+    formatRecordDate(record.createdAt),
+  ];
+  return parts.join(' · ');
+}
+
 class _ReviewItemTile extends StatelessWidget {
   const _ReviewItemTile({
     required this.item,
@@ -342,7 +354,7 @@ class _ReviewItemTile extends StatelessWidget {
       child: _RecordCard(
         record: record,
         amountColor: amountColor,
-        subtitle: '${record.isIncome ? '收入' : '支出'} · ${record.category} · ${formatRecordDate(record.createdAt)}',
+        subtitle: _reviewSubtitle(record),
         footer: '分类依据：${item.categoryReason}',
         onEdit: onEdit,
         onRemove: onRemove,
@@ -514,6 +526,11 @@ class _RecordCard extends StatelessWidget {
           ],
           const SizedBox(height: 6),
           Text(
+            '方式：${record.source}',
+            style: AppTextStyles.bodyMuted(context),
+          ),
+          const SizedBox(height: 6),
+          Text(
             footer,
             style: AppTextStyles.bodyMuted(context).copyWith(
               color: colors.primary.withValues(alpha: 0.85),
@@ -672,6 +689,12 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
                 },
               ),
               const SizedBox(height: 12),
+              ReadOnlyMethodField(
+                value: widget.initialRecord.source.isNotEmpty
+                    ? widget.initialRecord.source
+                    : BillImportSource.unknown,
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -788,6 +811,9 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
         category: _category,
         createdAt: _selectedDate,
         notes: _notesController.text.trim(),
+        source: widget.initialRecord.source.isNotEmpty
+            ? widget.initialRecord.source
+            : BillImportSource.unknown,
       ),
     );
   }
