@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledger_app/models/ai_insight_models.dart';
+import 'package:ledger_app/models/ai_insight_scope.dart';
 import 'package:ledger_app/services/ai/ai_anomaly_analyzer.dart';
 import 'package:ledger_app/models/ledger_record.dart';
 
@@ -10,12 +11,14 @@ void main() {
     test(
       'returns sample-size warning when expense records are insufficient',
       () {
+        final now = DateTime(2026, 6, 10);
         final result = analyzer.analyze(
           records: <LedgerRecord>[
             _expense('餐饮', 20, DateTime(2026, 6, 1)),
             _expense('交通', 30, DateTime(2026, 6, 2)),
           ],
-          now: DateTime(2026, 6, 10),
+          scope: AiInsightScope.fromMonth(now, now: now),
+          now: now,
         );
 
         expect(result.items, isEmpty);
@@ -24,6 +27,7 @@ void main() {
     );
 
     test('detects large single expense as anomaly', () {
+      final now = DateTime(2026, 6, 20);
       final records = <LedgerRecord>[
         for (var i = 0; i < 11; i++)
           _expense('餐饮', 20 + i.toDouble(), DateTime(2026, 6, i + 1)),
@@ -32,11 +36,12 @@ void main() {
 
       final result = analyzer.analyze(
         records: records,
-        now: DateTime(2026, 6, 20),
+        scope: AiInsightScope.fromMonth(now, now: now),
+        now: now,
       );
 
       expect(result.items, isNotEmpty);
-      expect(result.items.first.reason, contains('单笔金额明显高于历史均值'));
+      expect(result.items.first.reason, contains('单笔金额明显高于时段均值'));
       expect(result.items.first.records, isNotEmpty);
     });
 

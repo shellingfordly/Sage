@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ledger_app/models/ai_insight_scope.dart';
 import 'package:ledger_app/services/ai/ai_overview_analyzer.dart';
 import 'package:ledger_app/models/ledger_record.dart';
 
@@ -7,6 +8,7 @@ void main() {
     const analyzer = AiOverviewAnalyzer();
 
     test('returns empty-expense summary when month has no expense', () {
+      final now = DateTime(2026, 6, 10);
       final result = analyzer.analyze(
         records: <LedgerRecord>[
           _record(
@@ -17,16 +19,18 @@ void main() {
             createdAt: DateTime(2026, 6, 2),
           ),
         ],
-        now: DateTime(2026, 6, 10),
+        scope: AiInsightScope.fromMonth(now, now: now),
+        now: now,
       );
 
       expect(result.totalIncome, 5000);
       expect(result.totalExpense, 0);
       expect(result.topCategories, isEmpty);
-      expect(result.summary, contains('暂未记录支出'));
+      expect(result.summary, contains('暂无消费支出'));
     });
 
     test('computes top categories and daily average for current month', () {
+      final now = DateTime(2026, 6, 10);
       final result = analyzer.analyze(
         records: <LedgerRecord>[
           _record(
@@ -58,7 +62,8 @@ void main() {
             createdAt: DateTime(2026, 5, 20),
           ),
         ],
-        now: DateTime(2026, 6, 10),
+        scope: AiInsightScope.fromMonth(now, now: now),
+        now: now,
       );
 
       expect(result.totalExpense, 400);

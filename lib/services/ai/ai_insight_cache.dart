@@ -1,26 +1,29 @@
+import '../../models/ai_insight_scope.dart';
 import '../../models/ledger_record.dart';
 import '../../models/ai_insight_models.dart';
 
 class AiInsightCache {
-  static const _cacheSchemaVersion = 2;
+  static const _cacheSchemaVersion = 5;
 
   String? _lastKey;
   AiInsightSnapshot? _lastSnapshot;
 
   AiInsightSnapshot getOrBuild({
     required String ledgerId,
+    required AiInsightScope scope,
     required List<LedgerRecord> records,
-    required double monthlyBudget,
+    required double budget,
     required AiSuggestionMode mode,
-    required DateTime now,
+    required DateTime reference,
     required AiInsightSnapshot Function() builder,
   }) {
     final key = _cacheKey(
       ledgerId: ledgerId,
+      scope: scope,
       records: records,
-      monthlyBudget: monthlyBudget,
+      budget: budget,
       mode: mode,
-      now: now,
+      reference: reference,
     );
     if (_lastKey == key && _lastSnapshot != null) {
       return _lastSnapshot!;
@@ -33,10 +36,11 @@ class AiInsightCache {
 
   String _cacheKey({
     required String ledgerId,
+    required AiInsightScope scope,
     required List<LedgerRecord> records,
-    required double monthlyBudget,
+    required double budget,
     required AiSuggestionMode mode,
-    required DateTime now,
+    required DateTime reference,
   }) {
     var sumExpense = 0.0;
     var sumIncome = 0.0;
@@ -49,12 +53,14 @@ class AiInsightCache {
       }
       sumMillis += record.createdAt.millisecondsSinceEpoch;
     }
-    final roundedBudget = monthlyBudget.toStringAsFixed(2);
+    final roundedBudget = budget.toStringAsFixed(2);
     final signature =
         '${sumExpense.toStringAsFixed(2)}|'
         '${sumIncome.toStringAsFixed(2)}|${records.length}|$sumMillis';
+    final scopeKey =
+        '${scope.start.toIso8601String()}|${scope.end.toIso8601String()}|${scope.label}';
     final dayKey =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    return 'v$_cacheSchemaVersion|$ledgerId|$dayKey|$roundedBudget|${mode.name}|$signature';
+        '${reference.year}-${reference.month.toString().padLeft(2, '0')}-${reference.day.toString().padLeft(2, '0')}';
+    return 'v$_cacheSchemaVersion|$ledgerId|$scopeKey|$dayKey|$roundedBudget|${mode.name}|$signature';
   }
 }

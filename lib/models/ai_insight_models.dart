@@ -119,12 +119,117 @@ class AiBudgetSuggestionInsight {
     required this.totalSuggested,
     required this.byCategory,
     required this.summary,
+    this.actionable = true,
   });
 
   final AiSuggestionMode mode;
   final double totalSuggested;
   final List<AiCategoryBudgetSuggestion> byCategory;
   final String summary;
+  final bool actionable;
+}
+
+enum FinanceHeadlineKind {
+  comparison,
+  categoryShift,
+  structure,
+  monthlyPeak,
+  budget,
+  notable,
+  tip,
+}
+
+class FinanceHeadline {
+  const FinanceHeadline({required this.kind, required this.text});
+
+  final FinanceHeadlineKind kind;
+  final String text;
+}
+
+class FinanceRecordCluster {
+  const FinanceRecordCluster({
+    required this.start,
+    required this.end,
+    required this.count,
+    required this.total,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final int count;
+  final double total;
+}
+
+class FinanceCategoryChange {
+  const FinanceCategoryChange({
+    required this.category,
+    required this.currentAmount,
+    required this.previousAmount,
+    required this.changeAmount,
+    required this.changePercent,
+    this.cluster,
+  });
+
+  final String category;
+  final double currentAmount;
+  final double previousAmount;
+  final double changeAmount;
+  final double changePercent;
+  final FinanceRecordCluster? cluster;
+}
+
+class FinanceComparisonInsight {
+  const FinanceComparisonInsight({
+    required this.currentExpense,
+    required this.previousExpense,
+    required this.changeAmount,
+    required this.changePercent,
+    required this.previousPeriodLabel,
+    required this.categoryChanges,
+    required this.summary,
+  });
+
+  final double currentExpense;
+  final double previousExpense;
+  final double changeAmount;
+  final double changePercent;
+  final String previousPeriodLabel;
+  final List<FinanceCategoryChange> categoryChanges;
+  final String summary;
+}
+
+class FinanceMonthExpense {
+  const FinanceMonthExpense({
+    required this.month,
+    required this.expense,
+    required this.deviationFromAverage,
+    required this.deviationPercent,
+    this.topCategory,
+    this.topCategoryAmount = 0,
+  });
+
+  final DateTime month;
+  final double expense;
+  final double deviationFromAverage;
+  final double deviationPercent;
+  final String? topCategory;
+  final double topCategoryAmount;
+}
+
+class FinanceMonthlyVolatilityInsight {
+  const FinanceMonthlyVolatilityInsight({
+    required this.monthlyTotals,
+    required this.peakMonth,
+    required this.periodAverage,
+    required this.summary,
+  });
+
+  final List<FinanceMonthExpense> monthlyTotals;
+  final FinanceMonthExpense? peakMonth;
+  final double periodAverage;
+  final String summary;
+
+  bool get hasMultiMonthData => monthlyTotals.length >= 2 && peakMonth != null;
 }
 
 class AiInsightSnapshot {
@@ -133,6 +238,9 @@ class AiInsightSnapshot {
     required this.budgetRisk,
     required this.anomalies,
     required this.budgetSuggestion,
+    required this.comparison,
+    required this.monthlyVolatility,
+    required this.headlines,
     required this.generatedAt,
   });
 
@@ -140,28 +248,8 @@ class AiInsightSnapshot {
   final AiBudgetRiskInsight budgetRisk;
   final AiAnomalyInsight anomalies;
   final AiBudgetSuggestionInsight budgetSuggestion;
+  final FinanceComparisonInsight comparison;
+  final FinanceMonthlyVolatilityInsight monthlyVolatility;
+  final List<FinanceHeadline> headlines;
   final DateTime generatedAt;
-}
-
-class AiQuestionOption {
-  const AiQuestionOption({required this.id, required this.label});
-
-  final String id;
-  final String label;
-}
-
-class AiInsightAnswer {
-  const AiInsightAnswer({
-    required this.questionId,
-    required this.title,
-    required this.summary,
-    required this.suggestions,
-    this.relatedMetrics = const <String, String>{},
-  });
-
-  final String questionId;
-  final String title;
-  final String summary;
-  final List<String> suggestions;
-  final Map<String, String> relatedMetrics;
 }

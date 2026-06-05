@@ -1,15 +1,20 @@
+import '../../models/ai_insight_scope.dart';
 import '../../models/ledger_record.dart';
 import '../../models/ai_insight_models.dart';
+
+import 'consumption_record_filter.dart';
 
 class AiAnomalyAnalyzer {
   const AiAnomalyAnalyzer();
 
   AiAnomalyInsight analyze({
     required List<LedgerRecord> records,
+    required AiInsightScope scope,
     DateTime? now,
   }) {
-    final current = now ?? DateTime.now();
-    final expenseRecords = records.where((record) => !record.isIncome).toList();
+    final reference = now ?? DateTime.now();
+    final scopeRecords = filterRecordsInScope(records, scope);
+    final expenseRecords = consumptionExpenses(scopeRecords);
     if (expenseRecords.length < 10) {
       return const AiAnomalyInsight(
         items: <AiAnomalyItem>[],
@@ -19,13 +24,13 @@ class AiAnomalyAnalyzer {
 
     final items = <AiAnomalyItem>[
       ..._largeSingleExpense(expenseRecords),
-      ..._categorySpike(expenseRecords, current),
-      ..._denseSmallExpenses(expenseRecords, current),
+      ..._categorySpike(records, scope, reference),
+      ..._denseSmallExpenses(expenseRecords, reference, scope),
     ];
     items.sort(_sortBySeverityThenAmount);
     final topItems = items.take(3).toList();
     final summary = topItems.isEmpty
-        ? '最近消费波动较平稳，未发现明显异常。'
+        ? '所选时段消费波动较平稳，未发现明显异常。'
         : '识别到 ${topItems.length} 条异常消费，建议优先处理高风险项。';
     return AiAnomalyInsight(items: topItems, summary: summary);
   }
@@ -50,7 +55,7 @@ class AiAnomalyAnalyzer {
         title: target.title,
         category: target.category,
         amount: target.amount,
-        reason: '单笔金额明显高于历史均值（约 ${threshold.toStringAsFixed(0)} 元）。',
+        reason: '单笔金额明显高于时段均值（约 ${threshold.toStringAsFixed(0)} 元）。',
         severity: AiSeverity.high,
         records: <AiAnomalyRecord>[_toAnomalyRecord(target)],
       ),
@@ -58,13 +63,17 @@ class AiAnomalyAnalyzer {
   }
 
   List<AiAnomalyItem> _categorySpike(
-    List<LedgerRecord> expenseRecords,
-    DateTime now,
+    List<LedgerRecord> allRecords,
+    AiInsightScope scope,
+    DateTime reference,
   ) {
-    final thisMonth = _monthStart(now);
-    final previous1 = DateTime(thisMonth.year, thisMonth.month - 1, 1);
-    final previous2 = DateTime(thisMonth.year, thisMonth.month - 2, 1);
-    final thisMonthTotals = _categoryTotalsForMonth(expenseRecords, thisMonth);
+    final focusMonth = DateTime(reference.year, reference.month, 1);
+    final previous1 = DateTime(focusMonth.year, focusMonth.month - 1, 1);
+    final previous2 = DateTime(focusMonth.year, focusMonth.month - 2, 1);
+    final expenseRecords = consumptionExpenses(
+      allRecords.where((record) => !record.isIncome),
+    );
+    final thisMonthTotals = _categoryTotalsForMonth(expenseRecords, focusMonth);
     if (thisMonthTotals.isEmpty) {
       return const <AiAnomalyItem>[];
     }
@@ -72,8 +81,10 @@ class AiAnomalyAnalyzer {
     final prev2Totals = _categoryTotalsForMonth(expenseRecords, previous2);
     final thisMonthRecords = expenseRecords.where(
       (record) =>
-          record.createdAt.year == thisMonth.year &&
-          record.createdAt.month == thisMonth.month,
+          record.createdAt.year == focusMonth.year &&
+          record.createdAt.month == focusMonth.month &&
+          !record.createdAt.isBefore(scope.start) &&
+          !record.createdAt.isAfter(scope.end),
     );
 
     AiAnomalyItem? strongest;
@@ -91,7 +102,7 @@ class AiAnomalyAnalyzer {
         title: '${entry.key}类支出激增',
         category: entry.key,
         amount: entry.value,
-        reason: '本月较近两月均值上升 ${(ratio * 100 - 100).toStringAsFixed(0)}%。',
+        reason: '较近两月均值上升 ${(ratio * 100 - 100).toStringAsFixed(0)}%。',
         severity: ratio > 2.0 ? AiSeverity.high : AiSeverity.medium,
         records:
             ((thisMonthRecords
@@ -113,13 +124,17 @@ class AiAnomalyAnalyzer {
 
   List<AiAnomalyItem> _denseSmallExpenses(
     List<LedgerRecord> expenseRecords,
-    DateTime now,
+    DateTime reference,
+    AiInsightScope scope,
   ) {
-    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    final windowStart = reference.subtract(const Duration(days: 7));
+    final effectiveStart =
+        windowStart.isBefore(scope.start) ? scope.start : windowStart;
     final recentSmall = expenseRecords
         .where(
           (record) =>
-              record.createdAt.isAfter(sevenDaysAgo) &&
+              !record.createdAt.isBefore(effectiveStart) &&
+              !record.createdAt.isAfter(reference) &&
               record.amount > 0 &&
               record.amount <= 50,
         )
@@ -145,7 +160,7 @@ class AiAnomalyAnalyzer {
   }
 
   Map<String, double> _categoryTotalsForMonth(
-    List<LedgerRecord> records,
+    Iterable<LedgerRecord> records,
     DateTime month,
   ) {
     final totals = <String, double>{};
@@ -162,8 +177,6 @@ class AiAnomalyAnalyzer {
     }
     return totals;
   }
-
-  DateTime _monthStart(DateTime date) => DateTime(date.year, date.month, 1);
 
   int _sortBySeverityThenAmount(AiAnomalyItem a, AiAnomalyItem b) {
     final severityCompare = _severityWeight(

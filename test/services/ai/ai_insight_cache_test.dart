@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledger_app/models/ai_insight_models.dart';
+import 'package:ledger_app/models/ai_insight_scope.dart';
 import 'package:ledger_app/services/ai/ai_insight_cache.dart';
 import 'package:ledger_app/models/ledger_record.dart';
 
@@ -9,13 +10,16 @@ void main() {
       final cache = AiInsightCache();
       var buildCount = 0;
       final records = <LedgerRecord>[_expense('餐饮', 100, DateTime(2026, 6, 1))];
+      final now = DateTime(2026, 6, 10);
+      final scope = AiInsightScope.fromMonth(now, now: now);
 
       final first = cache.getOrBuild(
         ledgerId: 'ledger-1',
+        scope: scope,
         records: records,
-        monthlyBudget: 2000,
+        budget: 2000,
         mode: AiSuggestionMode.balanced,
-        now: DateTime(2026, 6, 10),
+        reference: now,
         builder: () {
           buildCount++;
           return _snapshot(DateTime(2026, 6, 10, 10, 0, 0));
@@ -24,10 +28,11 @@ void main() {
 
       final second = cache.getOrBuild(
         ledgerId: 'ledger-1',
+        scope: scope,
         records: records,
-        monthlyBudget: 2000,
+        budget: 2000,
         mode: AiSuggestionMode.balanced,
-        now: DateTime(2026, 6, 10),
+        reference: now,
         builder: () {
           buildCount++;
           return _snapshot(DateTime(2026, 6, 10, 10, 0, 1));
@@ -42,13 +47,16 @@ void main() {
       final cache = AiInsightCache();
       var buildCount = 0;
       final records = <LedgerRecord>[_expense('餐饮', 100, DateTime(2026, 6, 1))];
+      final now = DateTime(2026, 6, 10);
+      final scope = AiInsightScope.fromMonth(now, now: now);
 
       cache.getOrBuild(
         ledgerId: 'ledger-1',
+        scope: scope,
         records: records,
-        monthlyBudget: 2000,
+        budget: 2000,
         mode: AiSuggestionMode.balanced,
-        now: DateTime(2026, 6, 10),
+        reference: now,
         builder: () {
           buildCount++;
           return _snapshot(DateTime(2026, 6, 10, 10, 0, 0));
@@ -57,10 +65,11 @@ void main() {
 
       cache.getOrBuild(
         ledgerId: 'ledger-1',
+        scope: scope,
         records: records,
-        monthlyBudget: 2500,
+        budget: 2500,
         mode: AiSuggestionMode.balanced,
-        now: DateTime(2026, 6, 10),
+        reference: now,
         builder: () {
           buildCount++;
           return _snapshot(DateTime(2026, 6, 10, 10, 0, 1));
@@ -111,6 +120,22 @@ AiInsightSnapshot _snapshot(DateTime generatedAt) {
       byCategory: <AiCategoryBudgetSuggestion>[],
       summary: 'ok',
     ),
+    comparison: const FinanceComparisonInsight(
+      currentExpense: 0,
+      previousExpense: 0,
+      changeAmount: 0,
+      changePercent: 0,
+      previousPeriodLabel: '上一时段',
+      categoryChanges: <FinanceCategoryChange>[],
+      summary: 'ok',
+    ),
+    monthlyVolatility: const FinanceMonthlyVolatilityInsight(
+      monthlyTotals: <FinanceMonthExpense>[],
+      peakMonth: null,
+      periodAverage: 0,
+      summary: '',
+    ),
+    headlines: const <FinanceHeadline>[],
     generatedAt: generatedAt,
   );
 }
