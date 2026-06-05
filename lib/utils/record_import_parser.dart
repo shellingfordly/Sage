@@ -16,6 +16,10 @@ LedgerRecordType? parseImportRecordType(String text) {
       normalized.contains('支')) {
     return LedgerRecordType.expense;
   }
+  if (normalized.contains('wealth') ||
+      normalized.contains('理财')) {
+    return LedgerRecordType.wealth;
+  }
   return null;
 }
 
@@ -141,7 +145,7 @@ RecordRowParseResult parseImportRecordColumns({
 }
 
 String recordTypeLabel(LedgerRecordType type) {
-  return type == LedgerRecordType.income ? '收入' : '支出';
+  return ledgerRecordTypeLabel(type);
 }
 
 List<String> recordToPreviewCells(LedgerRecord record) {

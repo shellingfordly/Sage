@@ -1,5 +1,24 @@
 import '../models/ledger_record.dart';
 
+String formatCompactCurrency(double amount, {bool signed = false}) {
+  final absAmount = amount.abs();
+  final prefix = signed ? (amount >= 0 ? '+' : '-') : (amount < 0 ? '-' : '');
+
+  if (absAmount >= 100000000) {
+    return '$prefix${(absAmount / 100000000).toStringAsFixed(1)}亿';
+  }
+  if (absAmount >= 10000) {
+    return '$prefix${(absAmount / 10000).toStringAsFixed(absAmount >= 100000 ? 0 : 1)}万';
+  }
+  if (absAmount >= 1000) {
+    return '$prefix${absAmount.toStringAsFixed(0)}';
+  }
+  if (absAmount == 0) {
+    return signed ? '+0' : '0';
+  }
+  return '$prefix${absAmount.toStringAsFixed(absAmount >= 100 ? 0 : 2)}';
+}
+
 String formatCurrency(double amount, {bool signed = false}) {
   final absAmount = amount.abs();
   final fixed = absAmount.toStringAsFixed(2);
@@ -23,6 +42,9 @@ String formatCurrency(double amount, {bool signed = false}) {
 }
 
 String formatRecordAmount(LedgerRecord record) {
+  if (record.isWealth) {
+    return formatCurrency(record.amount, signed: true);
+  }
   final amount = record.isIncome ? record.amount : -record.amount;
   return formatCurrency(amount, signed: true);
 }

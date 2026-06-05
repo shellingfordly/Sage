@@ -59,6 +59,12 @@ class LedgerRepository {
       final budgetsByLedgerRaw = payload['budgetsByLedger'];
       final categoryBudgetsByLedgerRaw = payload['categoryBudgetsByLedger'];
       final categoriesByLedgerRaw = payload['categoriesByLedger'];
+      final wealthMonthlyTargetRaw = payload['wealthMonthlyTargetByLedger'];
+      final wealthYearlyTargetRaw = payload['wealthYearlyTargetByLedger'];
+      final legacyWealthMonthlyTargetsRaw =
+          payload['wealthMonthlyTargetsByLedger'];
+      final legacyWealthYearlyTargetsRaw =
+          payload['wealthYearlyTargetsByLedger'];
 
       final ledgers = ledgersRaw is List
           ? ledgersRaw
@@ -166,6 +172,19 @@ class LedgerRepository {
         return LedgerRepositoryData.empty();
       }
 
+      var wealthMonthlyTargetByLedger = _parseSingleTargets(wealthMonthlyTargetRaw);
+      var wealthYearlyTargetByLedger = _parseSingleTargets(wealthYearlyTargetRaw);
+      if (wealthMonthlyTargetByLedger.isEmpty) {
+        wealthMonthlyTargetByLedger = _migrateLegacyTargets(
+          _parseMonthlyTargets(legacyWealthMonthlyTargetsRaw),
+        );
+      }
+      if (wealthYearlyTargetByLedger.isEmpty) {
+        wealthYearlyTargetByLedger = _migrateLegacyTargets(
+          _parseMonthlyTargets(legacyWealthYearlyTargetsRaw),
+        );
+      }
+
       final fallbackLedgerId = ledgers.first.id;
       return LedgerRepositoryData(
         ledgers: ledgers,
@@ -174,6 +193,8 @@ class LedgerRepository {
         budgetsByLedger: budgetsByLedger,
         categoryBudgetsByLedger: categoryBudgetsByLedger,
         categoriesByLedger: categoriesByLedger,
+        wealthMonthlyTargetByLedger: wealthMonthlyTargetByLedger,
+        wealthYearlyTargetByLedger: wealthYearlyTargetByLedger,
       );
     } on FormatException {
       return LedgerRepositoryData.empty();
@@ -205,9 +226,68 @@ class LedgerRepository {
         for (final entry in data.categoriesByLedger.entries)
           entry.key: entry.value.map((category) => category.toJson()).toList(),
       },
+      'wealthMonthlyTargetByLedger': data.wealthMonthlyTargetByLedger,
+      'wealthYearlyTargetByLedger': data.wealthYearlyTargetByLedger,
     });
     return _preferences.setString(_recordsKey, encoded);
   }
+}
+
+Map<String, double> _parseSingleTargets(Object? raw) {
+  final result = <String, double>{};
+  if (raw is! Map) {
+    return result;
+  }
+  for (final entry in raw.entries) {
+    final ledgerId = entry.key.toString();
+    final amountRaw = entry.value;
+    if (amountRaw is num && amountRaw > 0) {
+      result[ledgerId] = amountRaw.toDouble();
+    }
+  }
+  return result;
+}
+
+Map<String, double> _migrateLegacyTargets(
+  Map<String, Map<String, double>> legacy,
+) {
+  final result = <String, double>{};
+  for (final entry in legacy.entries) {
+    final amount = entry.value.values.fold<double>(
+      0,
+      (max, value) => value > max ? value : max,
+    );
+    if (amount > 0) {
+      result[entry.key] = amount;
+    }
+  }
+  return result;
+}
+
+Map<String, Map<String, double>> _parseMonthlyTargets(Object? raw) {
+  final result = <String, Map<String, double>>{};
+  if (raw is! Map) {
+    return result;
+  }
+  for (final entry in raw.entries) {
+    final ledgerId = entry.key.toString();
+    final value = entry.value;
+    if (value is! Map) {
+      continue;
+    }
+    final targets = <String, double>{};
+    for (final targetEntry in value.entries) {
+      final key = targetEntry.key.toString();
+      final amountRaw = targetEntry.value;
+      if (amountRaw is num && amountRaw > 0) {
+        targets[key] = amountRaw.toDouble();
+      }
+    }
+    if (targets.isNotEmpty) {
+      result[ledgerId] = targets;
+    }
+  }
+  return result;
 }
 
 class LedgerRepositoryData {
@@ -218,6 +298,8 @@ class LedgerRepositoryData {
     required this.budgetsByLedger,
     required this.categoryBudgetsByLedger,
     required this.categoriesByLedger,
+    this.wealthMonthlyTargetByLedger = const {},
+    this.wealthYearlyTargetByLedger = const {},
   });
 
   final List<LedgerBook> ledgers;
@@ -226,6 +308,8 @@ class LedgerRepositoryData {
   final Map<String, Map<String, double>> budgetsByLedger;
   final Map<String, Map<String, Map<String, double>>> categoryBudgetsByLedger;
   final Map<String, List<LedgerCategory>> categoriesByLedger;
+  final Map<String, double> wealthMonthlyTargetByLedger;
+  final Map<String, double> wealthYearlyTargetByLedger;
 
   factory LedgerRepositoryData.empty() {
     final defaultLedger = LedgerBook(

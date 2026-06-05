@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/ledger_book.dart';
 import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
+import '../models/wealth_meta.dart';
+import '../services/wealth/wealth_analyzer.dart';
 import 'ledger_repository.dart';
 
 final ledgerStore = LedgerStore(LedgerRepository());
@@ -18,6 +20,8 @@ class LedgerStore extends ChangeNotifier {
   final Map<String, Map<String, double>> _budgetsByLedger = {};
   final Map<String, Map<String, Map<String, double>>> _categoryBudgetsByLedger =
       {};
+  final Map<String, double> _wealthMonthlyTargetByLedger = {};
+  final Map<String, double> _wealthYearlyTargetByLedger = {};
   final Map<String, List<LedgerCategory>> _categoriesByLedger = {};
   String? _currentLedgerId;
 
@@ -138,10 +142,22 @@ class LedgerStore extends ChangeNotifier {
       ..clear()
       ..addAll({
         for (final ledger in _ledgers)
-          ledger.id: List<LedgerCategory>.from(
-            snapshot.categoriesByLedger[ledger.id] ?? defaultCategories(),
+          ledger.id: migrateLegacyCategories(
+            List<LedgerCategory>.from(
+              snapshot.categoriesByLedger[ledger.id] ?? defaultCategories(),
+            ),
           ),
       });
+    _wealthMonthlyTargetByLedger
+      ..clear()
+      ..addAll(snapshot.wealthMonthlyTargetByLedger);
+    _wealthYearlyTargetByLedger
+      ..clear()
+      ..addAll(snapshot.wealthYearlyTargetByLedger);
+    final migrated = _migrateLegacyWealthRecords();
+    if (migrated) {
+      await _save();
+    }
     final hasCurrent = _ledgers.any(
       (ledger) => ledger.id == snapshot.currentLedgerId,
     );
@@ -160,6 +176,7 @@ class LedgerStore extends ChangeNotifier {
     required DateTime createdAt,
     String notes = '',
     String source = '',
+    WealthMeta wealthMeta = const WealthMeta(),
   }) async {
     final record = LedgerRecord(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -170,6 +187,7 @@ class LedgerStore extends ChangeNotifier {
       createdAt: createdAt,
       notes: notes.trim(),
       source: source.trim(),
+      wealthMeta: type == LedgerRecordType.wealth ? wealthMeta : const WealthMeta(),
     );
 
     _currentRecords.insert(0, record);
@@ -186,6 +204,7 @@ class LedgerStore extends ChangeNotifier {
     required DateTime createdAt,
     String notes = '',
     String source = '',
+    WealthMeta wealthMeta = const WealthMeta(),
   }) async {
     final records = _currentRecords;
     final index = records.indexWhere((record) => record.id == recordId);
@@ -202,6 +221,7 @@ class LedgerStore extends ChangeNotifier {
       createdAt: createdAt,
       notes: notes.trim(),
       source: source.trim(),
+      wealthMeta: type == LedgerRecordType.wealth ? wealthMeta : const WealthMeta(),
     );
     records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     await _save();
@@ -245,7 +265,14 @@ class LedgerStore extends ChangeNotifier {
       final categoryName = source.category.trim().isEmpty
           ? '其他'
           : source.category.trim();
-      if (title.isEmpty || source.amount <= 0) {
+      if (title.isEmpty) {
+        continue;
+      }
+      if (source.type == LedgerRecordType.wealth) {
+        if (source.amount == 0) {
+          continue;
+        }
+      } else if (source.amount <= 0) {
         continue;
       }
 
@@ -258,6 +285,7 @@ class LedgerStore extends ChangeNotifier {
         createdAt: source.createdAt,
         notes: source.notes.trim(),
         source: source.source.trim(),
+        wealthMeta: source.wealthMeta,
       );
       final fingerprint = _recordFingerprint(normalized);
       if (skipDuplicates) {
@@ -320,6 +348,8 @@ class LedgerStore extends ChangeNotifier {
     _recordsByLedger[ledger.id] = [];
     _budgetsByLedger[ledger.id] = {};
     _categoryBudgetsByLedger[ledger.id] = {};
+    _wealthMonthlyTargetByLedger.remove(ledger.id);
+    _wealthYearlyTargetByLedger.remove(ledger.id);
     _categoriesByLedger[ledger.id] = List<LedgerCategory>.from(
       defaultCategories(),
     );
@@ -366,6 +396,8 @@ class LedgerStore extends ChangeNotifier {
     _recordsByLedger.remove(ledgerId);
     _budgetsByLedger.remove(ledgerId);
     _categoryBudgetsByLedger.remove(ledgerId);
+    _wealthMonthlyTargetByLedger.remove(ledgerId);
+    _wealthYearlyTargetByLedger.remove(ledgerId);
     _categoriesByLedger.remove(ledgerId);
     if (_currentLedgerId == ledgerId) {
       _currentLedgerId = _ledgers.first.id;
@@ -470,11 +502,17 @@ class LedgerStore extends ChangeNotifier {
         : categories
               .where((category) => category.type == LedgerRecordType.income)
               .toList();
+    final wealth = type == LedgerRecordType.wealth
+        ? typed
+        : categories
+              .where((category) => category.type == LedgerRecordType.wealth)
+              .toList();
 
     categories
       ..clear()
       ..addAll(expense)
-      ..addAll(income);
+      ..addAll(income)
+      ..addAll(wealth);
 
     await _save();
   }
@@ -646,6 +684,55 @@ class LedgerStore extends ChangeNotifier {
         .toList();
   }
 
+  List<LedgerRecord> cashflowRecordsForMonth(DateTime month) {
+    return recordsForMonth(month)
+        .where((record) => !record.isWealth)
+        .toList();
+  }
+
+  List<LedgerRecord> wealthRecords({String? ledgerId}) {
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    return (_recordsByLedger[targetLedgerId] ?? const <LedgerRecord>[])
+        .where((record) => record.isWealth)
+        .toList();
+  }
+
+  double wealthMonthlyTarget({String? ledgerId}) {
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    return _wealthMonthlyTargetByLedger[targetLedgerId] ?? 0;
+  }
+
+  double wealthYearlyTarget({String? ledgerId}) {
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    return _wealthYearlyTargetByLedger[targetLedgerId] ?? 0;
+  }
+
+  Future<void> setWealthMonthlyTarget({
+    required double amount,
+    String? ledgerId,
+  }) async {
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    if (amount <= 0) {
+      _wealthMonthlyTargetByLedger.remove(targetLedgerId);
+    } else {
+      _wealthMonthlyTargetByLedger[targetLedgerId] = amount;
+    }
+    await _save();
+  }
+
+  Future<void> setWealthYearlyTarget({
+    required double amount,
+    String? ledgerId,
+  }) async {
+    final targetLedgerId = ledgerId ?? _currentLedger.id;
+    if (amount <= 0) {
+      _wealthYearlyTargetByLedger.remove(targetLedgerId);
+    } else {
+      _wealthYearlyTargetByLedger[targetLedgerId] = amount;
+    }
+    await _save();
+  }
+
   List<LedgerRecord> recentRecords({int limit = 5}) {
     return _currentRecords.take(limit).toList();
   }
@@ -748,11 +835,64 @@ class LedgerStore extends ChangeNotifier {
           for (final entry in _categoriesByLedger.entries)
             entry.key: List<LedgerCategory>.from(entry.value),
         },
+        wealthMonthlyTargetByLedger: Map<String, double>.from(
+          _wealthMonthlyTargetByLedger,
+        ),
+        wealthYearlyTargetByLedger: Map<String, double>.from(
+          _wealthYearlyTargetByLedger,
+        ),
       ),
     );
     _saving = false;
     notifyListeners();
   }
+
+  bool _migrateLegacyWealthRecords() {
+    var changed = false;
+    for (final ledger in _ledgers) {
+      final records = _recordsByLedger[ledger.id];
+      if (records == null) {
+        continue;
+      }
+      for (var index = 0; index < records.length; index++) {
+        final migrated = migrateLegacyWealthRecord(records[index]);
+        if (migrated != records[index]) {
+          records[index] = migrated;
+          changed = true;
+        }
+      }
+      final categories = _categoriesByLedger[ledger.id];
+      if (categories != null) {
+        final migratedCategories = migrateLegacyCategories(categories);
+        if (migratedCategories.length != categories.length ||
+            !_sameCategoryLists(categories, migratedCategories)) {
+          _categoriesByLedger[ledger.id] = migratedCategories;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      return true;
+    }
+    return false;
+  }
+}
+
+bool _sameCategoryLists(
+  List<LedgerCategory> left,
+  List<LedgerCategory> right,
+) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index].id != right[index].id ||
+        left[index].name != right[index].name ||
+        left[index].type != right[index].type) {
+      return false;
+    }
+  }
+  return true;
 }
 
 String _ensureFallbackCategory({

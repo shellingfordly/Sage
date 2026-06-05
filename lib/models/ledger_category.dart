@@ -149,8 +149,17 @@ String iconKeyForCategoryName(String name, LedgerRecordType type) {
     return switch (name) {
       '工资' => 'work',
       '奖金' => 'award',
-      '理财' => 'trend',
       '兼职' => 'briefcase',
+      _ => 'category',
+    };
+  }
+  if (type == LedgerRecordType.wealth) {
+    return switch (name) {
+      '定期存款' => 'bank',
+      '活期·货币' => 'savings',
+      '基金' => 'trend',
+      '股票' => 'trend',
+      '收益' => 'payments',
       _ => 'category',
     };
   }
@@ -229,12 +238,6 @@ List<LedgerCategory> defaultCategories() {
       iconKey: 'award',
     ),
     const LedgerCategory(
-      id: 'income-trend',
-      name: '理财',
-      type: LedgerRecordType.income,
-      iconKey: 'trend',
-    ),
-    const LedgerCategory(
       id: 'income-briefcase',
       name: '兼职',
       type: LedgerRecordType.income,
@@ -244,6 +247,42 @@ List<LedgerCategory> defaultCategories() {
       id: 'income-other',
       name: '其他',
       type: LedgerRecordType.income,
+      iconKey: 'category',
+    ),
+    const LedgerCategory(
+      id: 'wealth-fixed-deposit',
+      name: '定期存款',
+      type: LedgerRecordType.wealth,
+      iconKey: 'bank',
+    ),
+    const LedgerCategory(
+      id: 'wealth-demand',
+      name: '活期·货币',
+      type: LedgerRecordType.wealth,
+      iconKey: 'savings',
+    ),
+    const LedgerCategory(
+      id: 'wealth-fund',
+      name: '基金',
+      type: LedgerRecordType.wealth,
+      iconKey: 'trend',
+    ),
+    const LedgerCategory(
+      id: 'wealth-stock',
+      name: '股票',
+      type: LedgerRecordType.wealth,
+      iconKey: 'trend',
+    ),
+    const LedgerCategory(
+      id: 'wealth-yield',
+      name: '收益',
+      type: LedgerRecordType.wealth,
+      iconKey: 'payments',
+    ),
+    const LedgerCategory(
+      id: 'wealth-other',
+      name: '其他',
+      type: LedgerRecordType.wealth,
       iconKey: 'category',
     ),
   ];
