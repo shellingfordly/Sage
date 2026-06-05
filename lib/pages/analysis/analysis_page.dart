@@ -11,6 +11,7 @@ import '../../utils/ledger_formatters.dart';
 import 'analysis_query.dart';
 import 'widgets/analysis_filter_bar.dart';
 import 'widgets/analysis_record_list.dart';
+import 'widgets/analysis_record_toolbar.dart';
 
 class AnalysisPage extends StatefulWidget {
   const AnalysisPage({super.key});
@@ -126,6 +127,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
     _applyFilters(_filters.copyWith(searchQuery: _searchController.text));
   }
 
+  void _onSortChanged(AnalysisSortOption sort) {
+    _applyFilters(_filters.copyWith(sort: sort));
+  }
+
   bool get _hasActiveFilters {
     return _filters.typeFilter != AnalysisTypeFilter.all ||
         _filters.category != null ||
@@ -157,6 +162,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
           final visibleRecords = result.records
               .take(_visibleCount)
               .toList(growable: false);
+          final recordGroups = groupAnalysisRecords(
+            visibleRecords,
+            range: _filters.range,
+            customRange: _customRange,
+            now: today,
+          );
           final hasMore = visibleRecords.length < result.records.length;
 
           return CustomScrollView(
@@ -177,27 +188,29 @@ class _AnalysisPageState extends State<AnalysisPage> {
                       onClearCustomRange: _onClearCustomRange,
                     ),
                     const SizedBox(height: 12),
-                    AnalysisFilterBar(
-                      searchController: _searchController,
+                    _AnalysisControlsPanel(
                       typeFilter: _filters.typeFilter,
                       selectedCategory: _filters.category,
                       availableCategories: categories,
                       onTypeFilterChanged: _onTypeFilterChanged,
                       onCategoryChanged: _onCategoryChanged,
+                      searchController: _searchController,
+                      count: result.records.length,
+                      sort: _filters.sort,
+                      onSortChanged: _onSortChanged,
                       onSearchChanged: _onSearchChanged,
                     ),
                     const SizedBox(height: 12),
-                    _ResultSummary(
-                      count: result.records.length,
+                    _SummaryTiles(
                       totalIncome: result.totalIncome,
                       totalExpense: result.totalExpense,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                   ]),
                 ),
               ),
               AnalysisRecordList(
-                records: visibleRecords,
+                recordGroups: recordGroups,
                 totalCount: result.records.length,
                 hasActiveFilters: _hasActiveFilters,
                 hasMore: hasMore,
@@ -211,46 +224,118 @@ class _AnalysisPageState extends State<AnalysisPage> {
   }
 }
 
-class _ResultSummary extends StatelessWidget {
-  const _ResultSummary({
+class _AnalysisControlsPanel extends StatelessWidget {
+  const _AnalysisControlsPanel({
+    required this.typeFilter,
+    required this.selectedCategory,
+    required this.availableCategories,
+    required this.onTypeFilterChanged,
+    required this.onCategoryChanged,
+    required this.searchController,
     required this.count,
+    required this.sort,
+    required this.onSortChanged,
+    required this.onSearchChanged,
+  });
+
+  final AnalysisTypeFilter typeFilter;
+  final String? selectedCategory;
+  final List<String> availableCategories;
+  final ValueChanged<AnalysisTypeFilter> onTypeFilterChanged;
+  final ValueChanged<String?> onCategoryChanged;
+  final TextEditingController searchController;
+  final int count;
+  final AnalysisSortOption sort;
+  final ValueChanged<AnalysisSortOption> onSortChanged;
+  final VoidCallback onSearchChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final dividerColor = context.colors.divider.withValues(alpha: 0.85);
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: AppDecorations.surface(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnalysisFilterBar(
+            typeFilter: typeFilter,
+            selectedCategory: selectedCategory,
+            availableCategories: availableCategories,
+            onTypeFilterChanged: onTypeFilterChanged,
+            onCategoryChanged: onCategoryChanged,
+            showBottomDivider: false,
+          ),
+          Divider(height: 1, thickness: 1, color: dividerColor),
+          AnalysisRecordToolbar(
+            searchController: searchController,
+            count: count,
+            sort: sort,
+            onSortChanged: onSortChanged,
+            onSearchChanged: onSearchChanged,
+            decorated: false,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryTiles extends StatelessWidget {
+  const _SummaryTiles({
     required this.totalIncome,
     required this.totalExpense,
   });
 
-  final int count;
   final double totalIncome;
   final double totalExpense;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
+    return Row(
+      children: [
+        Expanded(
+          child: _SummaryTile(
+            title: '支出',
+            amount: formatCurrency(totalExpense),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _SummaryTile(
+            title: '收入',
+            amount: formatCurrency(totalIncome),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile({
+    required this.title,
+    required this.amount,
+  });
+
+  final String title;
+  final String amount;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: AppDecorations.surface(context),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$count 条记录',
-            style: AppTextStyles.bodyStrong(context),
-          ),
-          const Spacer(),
-          Text(
-            '支出 ${formatCurrency(totalExpense)}',
-            style: AppTextStyles.bodyMuted(context).copyWith(
-              color: colors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            '收入 ${formatCurrency(totalIncome)}',
-            style: AppTextStyles.bodyMuted(context).copyWith(
-              color: colors.primary,
-              fontWeight: FontWeight.w600,
-            ),
+          Text(title, style: AppTextStyles.bodyMuted(context)),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(amount, style: AppTextStyles.tileValue(context)),
           ),
         ],
       ),

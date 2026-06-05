@@ -1,29 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
-import '../../../theme/app_styles.dart';
 import '../../../theme/app_text_styles.dart';
 import '../analysis_query.dart';
 
 class AnalysisFilterBar extends StatelessWidget {
   const AnalysisFilterBar({
     super.key,
-    required this.searchController,
     required this.typeFilter,
     required this.selectedCategory,
     required this.availableCategories,
     required this.onTypeFilterChanged,
     required this.onCategoryChanged,
-    required this.onSearchChanged,
+    this.showBottomDivider = true,
   });
 
-  final TextEditingController searchController;
   final AnalysisTypeFilter typeFilter;
   final String? selectedCategory;
   final List<String> availableCategories;
   final ValueChanged<AnalysisTypeFilter> onTypeFilterChanged;
   final ValueChanged<String?> onCategoryChanged;
-  final VoidCallback onSearchChanged;
+  final bool showBottomDivider;
 
   Future<void> _openCategorySheet(BuildContext context) async {
     final picked = await showModalBottomSheet<String>(
@@ -41,73 +38,57 @@ class AnalysisFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final categoryLabel = selectedCategory ?? '全部分类';
+    final categoryLabel = selectedCategory ?? '分类';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          controller: searchController,
-          onChanged: (_) => onSearchChanged(),
-          decoration: InputDecoration(
-            hintText: '搜索标题、分类、备注或金额',
-            prefixIcon: Icon(Icons.search, color: colors.textSecondary),
-            suffixIcon: searchController.text.isEmpty
-                ? null
-                : IconButton(
-                    icon: Icon(Icons.close, color: colors.textSecondary),
-                    onPressed: () {
-                      searchController.clear();
-                      onSearchChanged();
-                    },
-                  ),
-            border: OutlineInputBorder(borderRadius: AppRadii.card),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _TypeFilterChip(
+        Row(
+          children: [
+            Expanded(
+              child: _FilterTab(
                 label: '全部',
                 selected: typeFilter == AnalysisTypeFilter.all,
                 onTap: () => onTypeFilterChanged(AnalysisTypeFilter.all),
               ),
-              const SizedBox(width: 8),
-              _TypeFilterChip(
+            ),
+            Expanded(
+              child: _FilterTab(
                 label: '支出',
                 selected: typeFilter == AnalysisTypeFilter.expense,
                 onTap: () => onTypeFilterChanged(AnalysisTypeFilter.expense),
               ),
-              const SizedBox(width: 8),
-              _TypeFilterChip(
+            ),
+            Expanded(
+              child: _FilterTab(
                 label: '收入',
                 selected: typeFilter == AnalysisTypeFilter.income,
                 onTap: () => onTypeFilterChanged(AnalysisTypeFilter.income),
               ),
-              const SizedBox(width: 8),
-              _TypeFilterChip(
+            ),
+            Expanded(
+              child: _FilterTab(
                 label: categoryLabel,
                 selected: selectedCategory != null,
                 trailing: Icons.expand_more,
                 onTap: () => _openCategorySheet(context),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+        if (showBottomDivider)
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: context.colors.divider.withValues(alpha: 0.85),
+          ),
       ],
     );
   }
 }
 
-class _TypeFilterChip extends StatelessWidget {
-  const _TypeFilterChip({
+class _FilterTab extends StatelessWidget {
+  const _FilterTab({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -127,40 +108,50 @@ class _TypeFilterChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: selected
-                ? colors.primary
-                : colors.primarySoft.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: selected
-                  ? colors.primary
-                  : colors.surfaceBorder.withValues(alpha: 0.85),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: AppTextStyles.chip(context, selected: selected).copyWith(
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.bodyStrong(context).copyWith(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        color: selected ? colors.primary : colors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 1),
+                    Icon(
+                      trailing,
+                      size: 14,
+                      color: selected ? colors.primary : colors.textSecondary,
+                    ),
+                  ],
+                ],
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 2),
-                Icon(
-                  trailing,
-                  size: 16,
-                  color: selected ? colors.onStrong : colors.textBody,
-                ),
-              ],
-            ],
-          ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              height: 2,
+              width: selected ? 24 : 0,
+              decoration: BoxDecoration(
+                color: colors.primary,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
         ),
       ),
     );

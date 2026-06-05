@@ -10,26 +10,28 @@ import '../../../theme/app_styles.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../utils/ledger_formatters.dart';
 import '../../../components/sheets/record_detail_sheet.dart';
+import '../analysis_query.dart';
 
 const analysisRecordPageSize = 30;
+const _folderRadius = 8.0;
 
 class AnalysisRecordList extends StatelessWidget {
   const AnalysisRecordList({
     super.key,
-    required this.records,
+    required this.recordGroups,
     required this.totalCount,
     required this.hasActiveFilters,
     required this.hasMore,
   });
 
-  final List<LedgerRecord> records;
+  final List<AnalysisRecordGroup> recordGroups;
   final int totalCount;
   final bool hasActiveFilters;
   final bool hasMore;
 
   @override
   Widget build(BuildContext context) {
-    if (records.isEmpty && totalCount == 0) {
+    if (recordGroups.isEmpty && totalCount == 0) {
       return SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         sliver: SliverFillRemaining(
@@ -39,58 +41,115 @@ class AnalysisRecordList extends StatelessWidget {
       );
     }
 
-    final colors = context.colors;
-
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       sliver: SliverMainAxisGroup(
         slivers: [
           SliverList(
             delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                if (index.isOdd) {
-                  return const _RecordDivider();
-                }
-                final recordIndex = index ~/ 2;
-                final isFirst = recordIndex == 0;
-                final isLast = recordIndex == records.length - 1;
-
-                return DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: isFirst && isLast
-                        ? AppRadii.card
-                        : isFirst
-                        ? const BorderRadius.vertical(top: Radius.circular(8))
-                        : isLast
-                        ? const BorderRadius.vertical(bottom: Radius.circular(8))
-                        : BorderRadius.zero,
-                    border: Border(
-                      left: BorderSide(color: colors.surfaceBorder),
-                      right: BorderSide(color: colors.surfaceBorder),
-                      top: isFirst
-                          ? BorderSide(color: colors.surfaceBorder)
-                          : BorderSide.none,
-                      bottom: isLast && !hasMore
-                          ? BorderSide(color: colors.surfaceBorder)
-                          : BorderSide.none,
-                    ),
-                  ),
-                  child: _RecordSlidable(record: records[recordIndex]),
-                );
-              },
-              childCount: records.isEmpty ? 0 : records.length * 2 - 1,
+              (context, index) => Padding(
+                padding: EdgeInsets.only(
+                  top: index == 0 ? 8 : 0,
+                  bottom: index == recordGroups.length - 1 ? 0 : 12,
+                ),
+                child: _FolderRecordSection(
+                  title: recordGroups[index].title,
+                  records: recordGroups[index].records,
+                ),
+              ),
+              childCount: recordGroups.length,
             ),
           ),
           if (hasMore)
             SliverToBoxAdapter(
               child: _LoadMoreHint(
-                loadedCount: records.length,
+                loadedCount: _loadedCount,
                 totalCount: totalCount,
               ),
             ),
         ],
       ),
+    );
+  }
+
+  int get _loadedCount =>
+      recordGroups.fold<int>(0, (sum, group) => sum + group.records.length);
+}
+
+class _FolderRecordSection extends StatelessWidget {
+  const _FolderRecordSection({
+    required this.title,
+    required this.records,
+  });
+
+  final String title;
+  final List<LedgerRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final borderColor = colors.surfaceBorder;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          constraints: const BoxConstraints(minWidth: 56, maxWidth: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(_folderRadius),
+              topRight: Radius.circular(_folderRadius),
+            ),
+            border: Border(
+              top: BorderSide(color: borderColor),
+              left: BorderSide(color: borderColor),
+              right: BorderSide(color: borderColor),
+            ),
+          ),
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.bodyStrong(context).copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: colors.textSecondary,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -1),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(_folderRadius),
+                bottomLeft: Radius.circular(_folderRadius),
+                bottomRight: Radius.circular(_folderRadius),
+              ),
+              border: Border.all(color: borderColor),
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(_folderRadius),
+                bottomLeft: Radius.circular(_folderRadius),
+                bottomRight: Radius.circular(_folderRadius),
+              ),
+              child: Column(
+                children: [
+                  for (var index = 0; index < records.length; index++) ...[
+                    _RecordSlidable(record: records[index]),
+                    if (index != records.length - 1) const _RecordDivider(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -106,20 +165,8 @@ class _LoadMoreHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-        border: Border(
-          left: BorderSide(color: colors.surfaceBorder),
-          right: BorderSide(color: colors.surfaceBorder),
-          bottom: BorderSide(color: colors.surfaceBorder),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -128,7 +175,7 @@ class _LoadMoreHint extends StatelessWidget {
             height: 14,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: colors.primary.withValues(alpha: 0.7),
+              color: context.colors.primary.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(width: 8),
@@ -196,21 +243,21 @@ class _RecordTile extends StatelessWidget {
       child: InkWell(
         onTap: () => showRecordDetailSheet(context, record: record),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 30,
+                height: 30,
                 decoration: AppDecorations.softFill(context),
                 child: Icon(
                   ledgerStore.categoryIconFor(record.category, record.type),
                   color: colors.textBody,
-                  size: 20,
+                  size: 16,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,27 +267,32 @@ class _RecordTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.bodyStrong(context).copyWith(
-                        height: 1.25,
+                        fontSize: 13,
+                        height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     Text(
                       '${record.category} · ${formatRecordDate(record.createdAt)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.bodyMuted(context).copyWith(
-                        height: 1.25,
+                        fontSize: 11,
+                        height: 1.2,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   formatRecordAmount(record),
-                  style: AppTextStyles.amount(context, amountColor),
+                  style: AppTextStyles.amount(context, amountColor).copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -308,9 +360,9 @@ class _RecordDivider extends StatelessWidget {
     return Divider(
       height: 1,
       thickness: 1,
-      indent: 58,
-      endIndent: 12,
-      color: context.colors.divider,
+      indent: 48,
+      endIndent: 10,
+      color: context.colors.divider.withValues(alpha: 0.75),
     );
   }
 }
