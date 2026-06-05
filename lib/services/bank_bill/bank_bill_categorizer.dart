@@ -18,8 +18,28 @@ class BankBillCategorizer {
   const BankBillCategorizer();
 
   BankBillCategoryResult categorize(BankBillRawRow raw) {
-    final type = raw.amount >= 0 ? LedgerRecordType.income : LedgerRecordType.expense;
     final summary = normalizeBankBillTransactionSummary(raw.transactionSummary);
+    final isInflow = raw.amount >= 0;
+
+    if (isInflow &&
+        _containsAny(summary, const ['理财', '基金', '利息', '收益', '分红'])) {
+      return const BankBillCategoryResult(
+        type: LedgerRecordType.wealth,
+        category: '收益',
+        reason: '交易摘要含理财收益相关词',
+      );
+    }
+
+    if (!isInflow &&
+        _containsAny(summary, const ['定存', '定期存款', '购买理财', '理财申购'])) {
+      return const BankBillCategoryResult(
+        type: LedgerRecordType.wealth,
+        category: '定期存款',
+        reason: '交易摘要含定存/理财存入相关词',
+      );
+    }
+
+    final type = isInflow ? LedgerRecordType.income : LedgerRecordType.expense;
 
     if (type == LedgerRecordType.income) {
       if (summary.contains('工资')) {
@@ -50,13 +70,6 @@ class BankBillCategorizer {
           reason: '交易摘要含「奖金」',
         );
       }
-      if (_containsAny(summary, const ['理财', '基金', '利息', '收益', '分红'])) {
-        return const BankBillCategoryResult(
-          type: LedgerRecordType.income,
-          category: '理财',
-          reason: '交易摘要含理财相关词',
-        );
-      }
       return const BankBillCategoryResult(
         type: LedgerRecordType.income,
         category: '其他',
@@ -64,7 +77,6 @@ class BankBillCategorizer {
       );
     }
 
-    // 支出侧含「工资」少见，归入其他避免误分类。
     if (summary.contains('工资')) {
       return const BankBillCategoryResult(
         type: LedgerRecordType.expense,
@@ -89,11 +101,11 @@ class BankBillCategorizer {
       );
     }
 
-    if (_containsAny(summary, const ['基金', '申购', '赎回', '理财'])) {
+    if (_containsAny(summary, const ['基金', '申购', '赎回'])) {
       return const BankBillCategoryResult(
-        type: LedgerRecordType.expense,
-        category: '理财',
-        reason: '交易摘要含基金/理财相关词',
+        type: LedgerRecordType.wealth,
+        category: '基金',
+        reason: '交易摘要含基金相关词',
       );
     }
 

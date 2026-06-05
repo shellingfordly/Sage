@@ -6,6 +6,7 @@ import '../../../data/ledger_store.dart';
 import '../../../models/ledger_category.dart';
 import '../../../models/ledger_record.dart';
 import '../../../services/bank_bill/bank_bill_models.dart';
+import '../../../services/bank_bill/bank_bill_privacy.dart';
 import '../../../services/bank_bill/bank_bill_record_builder.dart';
 import '../../../services/bank_bill/bill_import_source.dart';
 import '../../../services/bank_bill/templates/standard_table_template.dart';
@@ -129,7 +130,9 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
           raw: BankBillRawRow(
             date: updated.createdAt,
             currency: 'CNY',
-            amount: updated.isIncome ? updated.amount : -updated.amount,
+            amount: updated.isWealth
+                ? updated.amount
+                : (updated.isIncome ? updated.amount : -updated.amount),
             balance: 0,
             transactionSummary: _summaryFromNotes(updated.notes) ?? updated.title,
             sourceLine: row.sourceLine,
@@ -151,7 +154,7 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
 
     return LedgerRecord(
       id: 'bank-draft-${row.sourceLine.hashCode}',
-      title: row.sourceLine,
+      title: '待补充记录',
       amount: 0,
       type: LedgerRecordType.expense,
       category: '其他',
@@ -302,7 +305,7 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
 
 String _reviewSubtitle(LedgerRecord record) {
   final parts = <String>[
-    record.isIncome ? '收入' : '支出',
+    ledgerRecordTypeLabel(record.type),
     record.category,
     if (record.source.isNotEmpty) record.source,
     formatRecordDate(record.createdAt),
@@ -327,7 +330,9 @@ class _ReviewItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final record = item.record;
-    final amountColor = record.isIncome ? colors.primary : colors.textBody;
+    final amountColor = record.isWealth
+        ? colors.primary
+        : (record.isIncome ? colors.primary : colors.textBody);
 
     return Slidable(
       key: ValueKey(record.id),
@@ -438,7 +443,7 @@ class _SkippedItemTile extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              row.sourceLine,
+              redactBankBillSourceLine(row.sourceLine),
               style: AppTextStyles.bodyStrong(context),
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
@@ -502,7 +507,7 @@ class _RecordCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '${record.isIncome ? '+' : '-'}${record.amount.toStringAsFixed(2)}',
+                formatRecordAmount(record),
                 style: AppTextStyles.bodyStrong(context).copyWith(color: amountColor),
               ),
               IconButton(
@@ -594,7 +599,7 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
     final record = widget.initialRecord;
     _titleController = TextEditingController(text: record.title);
     _amountController = TextEditingController(
-      text: record.amount > 0 ? record.amount.toStringAsFixed(2) : '',
+      text: record.amount.toStringAsFixed(2),
     );
     _notesController = TextEditingController(text: record.notes);
     _type = record.type;
@@ -617,6 +622,9 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
     }
     return names.first;
   }
+
+  bool get _lockRecordType =>
+      !widget.isSkippedDraft && widget.initialRecord.isWealth;
 
   List<LedgerCategory> _categoriesFor(LedgerRecordType type) {
     final categories = ledgerStore.categoriesForType(type);
@@ -656,7 +664,7 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
               if (widget.sourceLine != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  '原始行：${widget.sourceLine}',
+                  '原始行（已脱敏）：${redactBankBillSourceLine(widget.sourceLine!)}',
                   style: AppTextStyles.bodyMuted(context),
                 ),
               ],
@@ -668,26 +676,48 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
                 ),
               ],
               const SizedBox(height: 16),
-              SegmentedButton<LedgerRecordType>(
-                segments: const [
-                  ButtonSegment(
-                    value: LedgerRecordType.expense,
-                    label: Text('支出'),
+              if (_lockRecordType) ...[
+                InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: '类型',
+                    border: OutlineInputBorder(borderRadius: AppRadii.card),
                   ),
-                  ButtonSegment(
-                    value: LedgerRecordType.income,
-                    label: Text('收入'),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.savings_outlined,
+                        color: context.colors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text('理财', style: AppTextStyles.bodyStrong(context)),
+                    ],
                   ),
-                ],
-                selected: {_type},
-                onSelectionChanged: (values) {
-                  final nextType = values.first;
-                  setState(() {
-                    _type = nextType;
-                    _category = _normalizeCategory(nextType, _category);
-                  });
-                },
-              ),
+                ),
+              ] else
+                SegmentedButton<LedgerRecordType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: LedgerRecordType.expense,
+                      label: Text('支出'),
+                    ),
+                    ButtonSegment(
+                      value: LedgerRecordType.income,
+                      label: Text('收入'),
+                    ),
+                    ButtonSegment(
+                      value: LedgerRecordType.wealth,
+                      label: Text('理财'),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (values) {
+                    final nextType = values.first;
+                    setState(() {
+                      _type = nextType;
+                      _category = _normalizeCategory(nextType, _category);
+                    });
+                  },
+                ),
               const SizedBox(height: 12),
               ReadOnlyMethodField(
                 value: widget.initialRecord.source.isNotEmpty
@@ -705,7 +735,16 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
                 ),
                 validator: (value) {
                   final amount = double.tryParse((value ?? '').trim());
-                  if (amount == null || amount <= 0) {
+                  if (amount == null) {
+                    return '请输入有效金额';
+                  }
+                  if (_type == LedgerRecordType.wealth) {
+                    if (amount == 0) {
+                      return '理财金额不能为 0';
+                    }
+                    return null;
+                  }
+                  if (amount <= 0) {
                     return '请输入大于 0 的金额';
                   }
                   return null;

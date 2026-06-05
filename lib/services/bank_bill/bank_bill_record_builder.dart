@@ -9,11 +9,14 @@ BankBillParsedRecord buildBankBillParsedRecord(
   BankBillCategorizer categorizer = const BankBillCategorizer(),
 }) {
   final category = categorizer.categorize(raw);
+  final amount = category.type == LedgerRecordType.wealth
+      ? (raw.amount >= 0 ? raw.amount.abs() : -raw.amount.abs())
+      : raw.amount.abs();
   return BankBillParsedRecord(
     record: LedgerRecord(
       id: id,
       title: bankBillRecordTitle(raw),
-      amount: raw.amount.abs(),
+      amount: amount,
       type: category.type,
       category: category.category,
       createdAt: raw.date,
