@@ -169,11 +169,11 @@ class _MainBottomNavBar extends StatelessWidget {
                 onTap: () => onDestinationSelected(0),
               ),
               _NavItem(
-                label: '统计',
-                icon: Icons.manage_search_outlined,
-                selectedIcon: Icons.manage_search,
-                selected: selectedIndex == 1,
-                onTap: () => onDestinationSelected(1),
+                label: '图表',
+                icon: Icons.bar_chart_outlined,
+                selectedIcon: Icons.bar_chart,
+                selected: selectedIndex == 2,
+                onTap: () => onDestinationSelected(2),
               ),
               Expanded(
                 child: Transform.translate(
@@ -202,11 +202,11 @@ class _MainBottomNavBar extends StatelessWidget {
                 ),
               ),
               _NavItem(
-                label: '图表',
-                icon: Icons.bar_chart_outlined,
-                selectedIcon: Icons.bar_chart,
-                selected: selectedIndex == 2,
-                onTap: () => onDestinationSelected(2),
+                label: '统计',
+                icon: Icons.manage_search_outlined,
+                selectedIcon: Icons.manage_search,
+                selected: selectedIndex == 1,
+                onTap: () => onDestinationSelected(1),
               ),
               _NavItem(
                 label: '我的',

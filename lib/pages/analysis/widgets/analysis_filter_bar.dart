@@ -68,6 +68,13 @@ class AnalysisFilterBar extends StatelessWidget {
             ),
             Expanded(
               child: _FilterTab(
+                label: '理财',
+                selected: typeFilter == AnalysisTypeFilter.wealth,
+                onTap: () => onTypeFilterChanged(AnalysisTypeFilter.wealth),
+              ),
+            ),
+            Expanded(
+              child: _FilterTab(
                 label: categoryLabel,
                 selected: selectedCategory != null,
                 trailing: Icons.expand_more,

@@ -235,8 +235,9 @@ class _RecordTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final amountColor =
-        record.isIncome ? colors.primary : colors.textPrimary;
+    final amountColor = record.isWealth
+        ? colors.primary
+        : (record.isIncome ? colors.primary : colors.textPrimary);
 
     return Material(
       color: Colors.transparent,

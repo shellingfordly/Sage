@@ -6,7 +6,7 @@ import '../../services/ai/consumption_record_filter.dart';
 import '../../utils/ledger_formatters.dart';
 import '../../utils/record_import_parser.dart';
 
-enum AnalysisTypeFilter { all, expense, income }
+enum AnalysisTypeFilter { all, expense, income, wealth }
 
 enum AnalysisSortOption {
   timeDesc,
@@ -134,7 +134,7 @@ AnalysisQueryResult queryAnalysisRecords(
   for (final record in filtered) {
     if (record.isIncome) {
       income += record.amount;
-    } else {
+    } else if (record.isExpense) {
       expense += record.amount;
     }
   }
@@ -148,9 +148,10 @@ AnalysisQueryResult queryAnalysisRecords(
 
 bool _matchesType(LedgerRecord record, AnalysisTypeFilter typeFilter) {
   return switch (typeFilter) {
-    AnalysisTypeFilter.all => true,
+    AnalysisTypeFilter.all => !record.isWealth,
     AnalysisTypeFilter.expense => record.type == LedgerRecordType.expense,
     AnalysisTypeFilter.income => record.type == LedgerRecordType.income,
+    AnalysisTypeFilter.wealth => record.type == LedgerRecordType.wealth,
   };
 }
 

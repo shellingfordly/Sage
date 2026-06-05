@@ -112,7 +112,7 @@ class HomePage extends StatelessWidget {
                 const SizedBox(height: 12),
                 _MonthlyRecords(
                   month: selectedMonth,
-                  records: ledgerStore.recordsForMonth(selectedMonth),
+                  records: ledgerStore.cashflowRecordsForMonth(selectedMonth),
                   anomalyRecordKeys: anomalyKeys,
                 ),
               ],
@@ -530,11 +530,11 @@ class _RecordTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final amountColor = record.isIncome
-        ? colors.primary
-        : isAnomaly
-        ? colors.danger
-        : colors.textPrimary;
+    final amountColor = switch (record.type) {
+      LedgerRecordType.income => colors.primary,
+      LedgerRecordType.wealth => colors.primary,
+      LedgerRecordType.expense => isAnomaly ? colors.danger : colors.textPrimary,
+    };
 
     return Material(
       color: colors.surface,
