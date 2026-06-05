@@ -2,7 +2,7 @@
 
 > **English** · [简体中文](README.zh-CN.md)
 
-**Sage** is a Flutter-based **local-first** personal ledger app. Track income and expenses across multiple books, set budgets, visualize spending, filter transactions, and get on-device AI insights—without requiring a cloud account.
+**Sage** is a Flutter-based **local-first** personal ledger app. Track income, expenses, and wealth across multiple books, set budgets, visualize spending, filter transactions on the **Statistics** tab, and get on-device **Analysis** (rule-based spending insights)—without requiring a cloud account.
 
 ---
 
@@ -10,20 +10,21 @@
 
 | Tab | Description |
 |-----|-------------|
-| **Home** | Monthly transaction list, swipe actions, quick add, AI alert shortcuts |
-| **Analysis** | Filter bills and inspect line items with summaries |
+| **Home** | Monthly cashflow list (income/expense), swipe actions, quick add, spending alert shortcuts |
+| **Statistics** | Filter bills by time range, category, and type (including wealth); inspect line items with summaries |
 | **Charts** | Trends, category breakdown, liquid disk visualization; year/month periods |
-| **Profile** | Ledgers, categories, budgets, backup, theme & font scale |
+| **Profile** | Ledgers, categories, budgets, wealth, backup, theme & font scale |
 
 ### Highlights
 
 - **Multiple ledgers** with merge workflow (month, custom range, or all records)
-- **Categories** for income/expense with icons, colors, and reordering
-- **Budgets** at ledger and per-category level, with AI suggestions and risk hints
-- **Records** add/edit flow with date picker and detail bottom sheet
-- **Bank statement import** from PDF, review before posting
+- **Categories** for income, expense, and wealth with icons, colors, and reordering
+- **Budgets** at ledger and per-category level (expense consumption only), with suggestions and risk hints
+- **Wealth** as a separate record type from cashflow balance: rate, maturity date, in-app reminders; Wealth Management page with principal, net deposits, targets, maturity list, and yearly trend
+- **Records** add/edit flow for expense, income, and wealth; date picker and detail bottom sheet
+- **Bank statement import** from PDF (and Alipay CSV / WeChat xlsx); review before posting; wealth detection when summary mentions fixed deposits or investments
 - **Backup** Excel/PDF import & export via platform file APIs
-- **AI insights** overview, budget risk, anomaly detection, Q&A explanations
+- **Analysis** (standalone route): spending overview, period comparison, category shifts, monthly volatility, budget risk, anomalies, and budget suggestions
 - **Theming** palette families, system/light/dark mode, four font scale steps
 
 ---
@@ -47,7 +48,7 @@
 ## Getting Started
 
 ```bash
-cd f_app
+cd Sage
 flutter pub get
 flutter run
 
@@ -65,12 +66,12 @@ Data and preferences load on startup; the app works offline.
 lib/
 ├── app.dart                 # App shell, bottom navigation, routes
 ├── main.dart                # Initializes ledgerStore / themeController
-├── ai/                      # AI analysis engine, cache, services
+├── ai/                      # Rule-based analysis engine, cache, services
 ├── components/              # Dialogs, sheets, charts, time range pickers
 ├── data/                    # LedgerStore, LedgerRepository persistence
-├── models/                  # Books, records, categories, import models
-├── pages/                   # Home, analysis, charts, add record, profile, AI
-├── services/                # Bank bills, merge, AI, backup services
+├── models/                  # Books, records, categories, wealth metadata
+├── pages/                   # Home, statistics, charts, add record, profile, analysis
+├── services/                # Bank bills, wealth, merge, analysis, backup
 ├── theme/                   # Theme, palettes, font scale, styles
 └── utils/                   # Formatters, file I/O, Excel parsing
 ```
@@ -89,7 +90,7 @@ Current version: `0.1.0+1` (see `pubspec.yaml`).
 
 - Default app locale is Simplified Chinese (`zh_CN`); `en_US` is also declared.
 - When changing data models or storage, update `LedgerRepository` and backup import paths together.
-- Before submitting changes, run `flutter analyze` and `flutter test` (if tests exist).
+- Before submitting changes, run `flutter analyze` and `flutter test`.
 
 ---
 

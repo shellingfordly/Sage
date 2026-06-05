@@ -12,11 +12,41 @@ All notable changes to Ledger App are documented here. Format based on [Keep a C
 
 - Shared form bottom sheet `AppFormSheet` for consistent ledger name and category editing
 - Refactored ledger name and category editor dialogs to use the form sheet
+- **Statistics** tab: time-range filters, folder-style grouped record list, sort options, and summary toolbar
+- Rule-based **Analysis** engine: consumption-only filtering (excludes transfers, fixed deposits, repayments)
+- Period comparison, headline conclusions, category shift breakdown, and peak-volatility month detection
+- Configurable analysis scopes for single month, multi-month, and custom ranges
+- Drill-down from Analysis panels to the Statistics tab with pre-filled filters (`AnalysisDrillDown`)
+- **Wealth** record type: separate from income/expense cashflow; dedicated categories, metadata (rate, maturity, in-app reminder), and Wealth Management page
+- Wealth principal & net-deposit analytics, maturity list, yearly trend chart with amounts, and per-ledger monthly/yearly deposit targets
+- Statistics tab **Wealth** filter; home and default statistics exclude wealth from balance
+- Record detail sheet delete action; bill import review supports wealth type editing
+- Bill import UI redaction for sensitive fields in source lines (`redactBankBillSourceLine`)
 
 ### Changed
 
-- Bottom navigation rework: dedicated **Analysis** and **Charts** tabs
-- AI insights exposed via standalone route `AiInsightRoute`
+- Bottom navigation labels: bill filtering tab renamed to **Statistics**; standalone analysis route titled **Analysis**
+- Analysis page rebuilt as a rule-driven layout (conclusions → comparison → categories → volatility → overview → notable items)
+- Cross-month scopes show read-only expense reference instead of editable monthly budget apply
+- Home spending alerts simplified (budget warning + anomaly count; no unread badge ack flow)
+- Legacy income/expense category「理财」 migrated to `wealth` type on load
+- Wealth targets simplified to one monthly and one yearly goal per ledger (legacy per-period values migrated on load)
+- Wealth management uses current-month/year stats; records open detail sheet on tap; wealth type locked when editing
+- Category management type switcher uses compact labels; record detail sheet drops redundant close button
+- Profile wealth entry subtitle shortened; README quick-start path corrected to `Sage`
+
+### Removed
+
+- Q&A explanation bottom sheet and preset question panel
+- Alert acknowledgement store and batch budget-suggestion apply service
+- Unused helpers (`iconForCategory`, `BillImportSource.wechat`)
+- Record detail sheet close button (dismiss via drag handle)
+
+### Fixed
+
+- `TimeRangePanel` bottom corner radius and built-in border styling
+- Category type segmented control text overflow on narrow screens
+- Skipped bank-import rows no longer use full raw line as default record title
 
 ---
 
@@ -52,12 +82,12 @@ First feature-complete release (`pubspec.yaml`: `0.1.0+1`).
 - PDF bank statement import: parse, category suggestions, review page batch posting
 - Improved export success feedback and preview flow
 
-#### AI insights
+#### Spending analysis
 
-- AI module: spending overview, budget risk, anomaly detection
-- Home AI alerts and dedicated AI insight page
+- Analysis module: spending overview, budget risk, anomaly detection
+- Home spending alerts and dedicated analysis page
 - Month navigation, budget warning confirmation, batch suggestion apply
-- AI Q&A explanation bottom sheet
+- Q&A explanation bottom sheet
 
 #### Theme & settings
 
@@ -68,7 +98,7 @@ First feature-complete release (`pubspec.yaml`: `0.1.0+1`).
 #### Engineering & UI
 
 - Shared dialogs, pickers, record detail and category picker sheets
-- `lib/` restructure: unified paths for AI, components, ledger, services
+- `lib/` restructure: unified paths for analysis, components, ledger, services
 - App init: parallel load of `ledgerStore` and `themeController`
 
 ### Changed
