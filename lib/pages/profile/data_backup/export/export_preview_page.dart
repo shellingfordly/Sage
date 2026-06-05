@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../../../theme/app_colors.dart';
-import '../../../theme/app_styles.dart';
-import '../../../theme/app_text_styles.dart';
+import '../../../../theme/app_colors.dart';
+import '../../../../theme/app_styles.dart';
+import '../../../../theme/app_text_styles.dart';
 
-class DataPreviewRow {
-  const DataPreviewRow({required this.cells});
+class ExportPreviewRow {
+  const ExportPreviewRow({required this.cells});
   final List<String> cells;
 }
 
-class DataPreviewFailureRow {
-  const DataPreviewFailureRow({required this.sourceLabel, required this.reason});
+class ExportPreviewFailureRow {
+  const ExportPreviewFailureRow({required this.sourceLabel, required this.reason});
 
   final String sourceLabel;
   final String reason;
 }
 
-class DataPreviewPage extends StatefulWidget {
-  const DataPreviewPage({
+class ExportPreviewPage extends StatefulWidget {
+  const ExportPreviewPage({
     super.key,
     required this.title,
     required this.subtitle,
@@ -31,16 +31,16 @@ class DataPreviewPage extends StatefulWidget {
   final String title;
   final String subtitle;
   final List<String> columns;
-  final List<DataPreviewRow> rows;
-  final List<DataPreviewFailureRow> failureRows;
+  final List<ExportPreviewRow> rows;
+  final List<ExportPreviewFailureRow> failureRows;
   final String? confirmButtonText;
   final String? cancelButtonText;
 
   @override
-  State<DataPreviewPage> createState() => _DataPreviewPageState();
+  State<ExportPreviewPage> createState() => _ExportPreviewPageState();
 }
 
-class _DataPreviewPageState extends State<DataPreviewPage> {
+class _ExportPreviewPageState extends State<ExportPreviewPage> {
   static const _chunkSize = 120;
   final _recordsController = ScrollController();
   final _failuresController = ScrollController();
@@ -176,7 +176,7 @@ class _PreviewTableView extends StatelessWidget {
   });
 
   final List<String> columns;
-  final List<DataPreviewRow> rows;
+  final List<ExportPreviewRow> rows;
   final int totalCount;
   final int visibleCount;
   final ScrollController controller;
@@ -260,7 +260,7 @@ class _FailureListView extends StatelessWidget {
     required this.controller,
   });
 
-  final List<DataPreviewFailureRow> rows;
+  final List<ExportPreviewFailureRow> rows;
   final int totalCount;
   final int visibleCount;
   final ScrollController controller;

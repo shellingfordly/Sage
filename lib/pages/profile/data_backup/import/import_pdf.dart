@@ -1,18 +1,18 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../../data/ledger_store.dart';
-import '../../../services/bank_bill/bank_bill_import_service.dart';
-import '../../../utils/platform_file_bytes.dart';
-import '../bank_bill/bank_bill_import_review_page.dart';
+import '../../../../data/ledger_store.dart';
+import '../../../../services/bank_bill/bank_bill_import_service.dart';
+import '../../../../utils/platform_file_bytes.dart';
+import '../../bank_bill/bank_bill_import_review_page.dart';
 
-class DataPdfImportService {
-  const DataPdfImportService({BankBillImportService? bankBillImportService})
+class ImportPdfService {
+  const ImportPdfService({BankBillImportService? bankBillImportService})
     : _bankBillImportService = bankBillImportService ?? const BankBillImportService();
 
   final BankBillImportService _bankBillImportService;
 
-  Future<DataPdfImportResult> importFromFilePicker(BuildContext context) async {
+  Future<ImportPdfResult> importFromFilePicker(BuildContext context) async {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -20,7 +20,7 @@ class DataPdfImportService {
         withData: true,
       );
       if (result == null || result.files.isEmpty) {
-        return const DataPdfImportCancelled();
+        return const ImportPdfCancelled();
       }
 
       final file = result.files.single;
@@ -31,17 +31,17 @@ class DataPdfImportService {
       );
 
       if (parsed.isCompleteFailure && parsed.skippedRows.isEmpty) {
-        return DataPdfImportFailure(parsed.fatalError ?? 'PDF 账单解析失败');
+        return ImportPdfFailure(parsed.fatalError ?? 'PDF 账单解析失败');
       }
 
       if (!parsed.hasRecords && parsed.skippedRows.isEmpty) {
-        return DataPdfImportFailure(
+        return ImportPdfFailure(
           parsed.fatalError ?? '未识别到可导入的账单记录',
         );
       }
 
       if (!context.mounted) {
-        return const DataPdfImportCancelled();
+        return const ImportPdfCancelled();
       }
 
       final confirmedRecords = await openBankBillImportReviewPage(
@@ -52,7 +52,7 @@ class DataPdfImportService {
         skippedRows: parsed.skippedRows,
       );
       if (confirmedRecords.isEmpty) {
-        return const DataPdfImportCancelled(message: '已取消导入');
+        return const ImportPdfCancelled(message: '已取消导入');
       }
 
       final added = await ledgerStore.importRecords(
@@ -60,35 +60,35 @@ class DataPdfImportService {
         skipDuplicates: true,
       );
       if (added == 0) {
-        return const DataPdfImportFailure('没有导入新记录（可能都已存在）');
+        return const ImportPdfFailure('没有导入新记录（可能都已存在）');
       }
 
       final remainingSkipped = parsed.skippedRows.length;
       final skippedHint = remainingSkipped > 0
           ? '；另有 $remainingSkipped 行未导入（审核时已跳过）'
           : '';
-      return DataPdfImportSuccess('导入成功，新增 $added 条记录$skippedHint');
+      return ImportPdfSuccess('导入成功，新增 $added 条记录$skippedHint');
     } catch (error) {
-      return DataPdfImportFailure('导入失败：$error');
+      return ImportPdfFailure('导入失败：$error');
     }
   }
 }
 
-sealed class DataPdfImportResult {
-  const DataPdfImportResult();
+sealed class ImportPdfResult {
+  const ImportPdfResult();
 }
 
-class DataPdfImportSuccess extends DataPdfImportResult {
-  const DataPdfImportSuccess(this.message);
+class ImportPdfSuccess extends ImportPdfResult {
+  const ImportPdfSuccess(this.message);
   final String message;
 }
 
-class DataPdfImportFailure extends DataPdfImportResult {
-  const DataPdfImportFailure(this.message);
+class ImportPdfFailure extends ImportPdfResult {
+  const ImportPdfFailure(this.message);
   final String message;
 }
 
-class DataPdfImportCancelled extends DataPdfImportResult {
-  const DataPdfImportCancelled({this.message});
+class ImportPdfCancelled extends ImportPdfResult {
+  const ImportPdfCancelled({this.message});
   final String? message;
 }

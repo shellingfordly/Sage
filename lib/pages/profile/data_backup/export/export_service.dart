@@ -1,25 +1,24 @@
 import 'package:excel/excel.dart' as xl;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-
 import 'package:flutter/material.dart';
-
-import '../../../models/ledger_record.dart';
-import '../../../utils/file_name_utils.dart';
-import '../../../utils/platform_file_io.dart';
-import '../../../utils/record_import_parser.dart';
 import 'package:ledger_app/components/time_range/export_range.dart';
 
-class DataExportService {
-  const DataExportService();
+import '../../../../models/ledger_record.dart';
+import '../../../../utils/file_name_utils.dart';
+import '../../../../utils/platform_file_io.dart';
+import '../../../../utils/record_import_parser.dart';
 
-  Future<DataExportResult> exportRecordsToExcel({
+class ExportService {
+  const ExportService();
+
+  Future<ExportResult> exportRecordsToExcel({
     required List<LedgerRecord> records,
     required ExportRange range,
     DateTimeRange? customRange,
   }) async {
     if (records.isEmpty) {
-      return const DataExportResult.failure('当前范围没有可导出的记录');
+      return const ExportResult.failure('当前范围没有可导出的记录');
     }
 
     try {
@@ -37,22 +36,22 @@ class DataExportService {
         bytes: bytes,
       );
       if (path != null) {
-        return DataExportResult.success('导出成功：${fileNameFromPath(path)}');
+        return ExportResult.success('导出成功：${fileNameFromPath(path)}');
       }
 
       if (kIsWeb) {
-        return const DataExportResult.cancelled();
+        return const ExportResult.cancelled();
       }
 
       final directory = await FilePicker.getDirectoryPath(dialogTitle: '选择导出目录');
       if (directory == null) {
-        return const DataExportResult.cancelled();
+        return const ExportResult.cancelled();
       }
       final fallbackPath = '$directory/$suggestedName';
       await writeBytesToPath(fallbackPath, bytes);
-      return DataExportResult.success('导出成功：$suggestedName');
+      return ExportResult.success('导出成功：$suggestedName');
     } catch (error) {
-      return DataExportResult.failure('导出失败：$error');
+      return ExportResult.failure('导出失败：$error');
     }
   }
 
@@ -89,24 +88,24 @@ class DataExportService {
   }
 }
 
-sealed class DataExportResult {
-  const DataExportResult();
+sealed class ExportResult {
+  const ExportResult();
 
-  const factory DataExportResult.success(String message) = DataExportSuccess;
-  const factory DataExportResult.failure(String message) = DataExportFailure;
-  const factory DataExportResult.cancelled() = DataExportCancelled;
+  const factory ExportResult.success(String message) = ExportSuccess;
+  const factory ExportResult.failure(String message) = ExportFailure;
+  const factory ExportResult.cancelled() = ExportCancelled;
 }
 
-class DataExportSuccess extends DataExportResult {
-  const DataExportSuccess(this.message);
+class ExportSuccess extends ExportResult {
+  const ExportSuccess(this.message);
   final String message;
 }
 
-class DataExportFailure extends DataExportResult {
-  const DataExportFailure(this.message);
+class ExportFailure extends ExportResult {
+  const ExportFailure(this.message);
   final String message;
 }
 
-class DataExportCancelled extends DataExportResult {
-  const DataExportCancelled();
+class ExportCancelled extends ExportResult {
+  const ExportCancelled();
 }

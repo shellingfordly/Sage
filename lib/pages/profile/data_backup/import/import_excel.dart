@@ -1,18 +1,18 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-
-import '../../../data/ledger_store.dart';
-import '../../../models/import_parse_result.dart';
-import '../../../utils/excel_record_parser.dart';
-import '../../../utils/platform_file_bytes.dart';
-import '../../../utils/record_import_parser.dart';
-import 'data_preview_page.dart';
 import 'package:ledger_app/components/time_range/export_range.dart';
 
-class DataExcelImportService {
-  const DataExcelImportService();
+import '../../../../data/ledger_store.dart';
+import '../../../../models/import_parse_result.dart';
+import '../../../../utils/excel_record_parser.dart';
+import '../../../../utils/platform_file_bytes.dart';
+import '../../../../utils/record_import_parser.dart';
+import '../export/export_preview_page.dart';
 
-  Future<DataExcelImportResult> importFromFilePicker(BuildContext context) async {
+class ImportExcelService {
+  const ImportExcelService();
+
+  Future<ImportExcelResult> importFromFilePicker(BuildContext context) async {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -20,13 +20,13 @@ class DataExcelImportService {
         withData: true,
       );
       if (result == null || result.files.isEmpty) {
-        return const DataExcelImportCancelled();
+        return const ImportExcelCancelled();
       }
 
       final file = result.files.single;
       final extension = (file.extension ?? '').toLowerCase();
       if (extension == 'pdf' || extension == 'doc' || extension == 'docx') {
-        return const DataExcelImportFailure('请使用「导入 PDF 账单」导入 PDF 文件');
+        return const ImportExcelFailure('请使用「导入 PDF 账单」导入 PDF 文件');
       }
 
       final bytes = await readPlatformFileBytes(file);
@@ -35,25 +35,25 @@ class DataExcelImportService {
           : parseExcelRecords(bytes);
 
       if (parsed.fatalError != null) {
-        return DataExcelImportFailure(parsed.fatalError!);
+        return ImportExcelFailure(parsed.fatalError!);
       }
       if (parsed.records.isEmpty && parsed.failedRows.isNotEmpty) {
         if (!context.mounted) {
-          return const DataExcelImportCancelled();
+          return const ImportExcelCancelled();
         }
         await _showImportPreviewPage(
           context,
           fileName: file.name,
           parsed: parsed,
         );
-        return const DataExcelImportCancelled();
+        return const ImportExcelCancelled();
       }
       if (parsed.records.isEmpty) {
-        return const DataExcelImportFailure('未识别到可导入记录，请检查文件格式');
+        return const ImportExcelFailure('未识别到可导入记录，请检查文件格式');
       }
 
       if (!context.mounted) {
-        return const DataExcelImportCancelled();
+        return const ImportExcelCancelled();
       }
 
       final confirmed = await _showImportPreviewPage(
@@ -62,7 +62,7 @@ class DataExcelImportService {
         parsed: parsed,
       );
       if (confirmed != true) {
-        return const DataExcelImportCancelled(message: '已取消导入');
+        return const ImportExcelCancelled(message: '已取消导入');
       }
 
       final added = await ledgerStore.importRecords(
@@ -70,18 +70,18 @@ class DataExcelImportService {
         skipDuplicates: true,
       );
       if (added == 0) {
-        return const DataExcelImportFailure('没有导入新记录（可能都已存在）');
+        return const ImportExcelFailure('没有导入新记录（可能都已存在）');
       }
 
       final skipped = parsed.failedRows.length;
       if (skipped > 0) {
-        return DataExcelImportSuccess(
+        return ImportExcelSuccess(
           '导入成功，新增 $added 条；另有 $skipped 条格式不匹配已跳过',
         );
       }
-      return DataExcelImportSuccess('导入成功，新增 $added 条记录');
+      return ImportExcelSuccess('导入成功，新增 $added 条记录');
     } catch (error) {
-      return DataExcelImportFailure('导入失败：$error');
+      return ImportExcelFailure('导入失败：$error');
     }
   }
 
@@ -93,17 +93,17 @@ class DataExcelImportService {
     final totalRows = parsed.records.length + parsed.failedRows.length;
     return Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (context) => DataPreviewPage(
+        builder: (context) => ExportPreviewPage(
           title: '导入预览',
           subtitle:
               '文件：$fileName  ·  总行数：$totalRows  ·  可导入：${parsed.records.length}  ·  失败：${parsed.failedRows.length}',
           columns: exportPreviewColumns,
           rows: parsed.records
-              .map((record) => DataPreviewRow(cells: recordToPreviewCells(record)))
+              .map((record) => ExportPreviewRow(cells: recordToPreviewCells(record)))
               .toList(),
           failureRows: parsed.failedRows
               .map(
-                (item) => DataPreviewFailureRow(
+                (item) => ExportPreviewFailureRow(
                   sourceLabel: '第 ${item.rowNumber} 行',
                   reason: item.reason,
                 ),
@@ -117,21 +117,21 @@ class DataExcelImportService {
   }
 }
 
-sealed class DataExcelImportResult {
-  const DataExcelImportResult();
+sealed class ImportExcelResult {
+  const ImportExcelResult();
 }
 
-class DataExcelImportSuccess extends DataExcelImportResult {
-  const DataExcelImportSuccess(this.message);
+class ImportExcelSuccess extends ImportExcelResult {
+  const ImportExcelSuccess(this.message);
   final String message;
 }
 
-class DataExcelImportFailure extends DataExcelImportResult {
-  const DataExcelImportFailure(this.message);
+class ImportExcelFailure extends ImportExcelResult {
+  const ImportExcelFailure(this.message);
   final String message;
 }
 
-class DataExcelImportCancelled extends DataExcelImportResult {
-  const DataExcelImportCancelled({this.message});
+class ImportExcelCancelled extends ImportExcelResult {
+  const ImportExcelCancelled({this.message});
   final String? message;
 }
