@@ -101,26 +101,68 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SegmentedButton<LedgerRecordType>(
-                        segments: const [
-                          ButtonSegment(
-                            value: LedgerRecordType.expense,
-                            label: Text('支出分类'),
-                            icon: Icon(Icons.trending_down),
+                      if (!widget.isEditing)
+                        SegmentedButton<LedgerRecordType>(
+                          showSelectedIcon: false,
+                          style: SegmentedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
                           ),
-                          ButtonSegment(
-                            value: LedgerRecordType.income,
-                            label: Text('收入分类'),
-                            icon: Icon(Icons.trending_up),
+                          segments: const [
+                            ButtonSegment(
+                              value: LedgerRecordType.expense,
+                              label: Text('支出'),
+                              icon: Icon(Icons.trending_down, size: 18),
+                            ),
+                            ButtonSegment(
+                              value: LedgerRecordType.income,
+                              label: Text('收入'),
+                              icon: Icon(Icons.trending_up, size: 18),
+                            ),
+                            ButtonSegment(
+                              value: LedgerRecordType.wealth,
+                              label: Text('理财'),
+                              icon: Icon(Icons.savings_outlined, size: 18),
+                            ),
+                          ],
+                          selected: {_selectedType},
+                          onSelectionChanged: _saving
+                              ? null
+                              : (values) {
+                                  setState(() => _selectedType = values.first);
+                                },
+                        )
+                      else
+                        InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: '类型',
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadii.card,
+                            ),
                           ),
-                        ],
-                        selected: {_selectedType},
-                        onSelectionChanged: widget.isEditing || _saving
-                            ? null
-                            : (values) {
-                                setState(() => _selectedType = values.first);
-                              },
-                      ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _selectedType == LedgerRecordType.wealth
+                                    ? Icons.savings_outlined
+                                    : _selectedType == LedgerRecordType.income
+                                    ? Icons.trending_up
+                                    : Icons.trending_down,
+                                size: 18,
+                                color: colors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _selectedType == LedgerRecordType.expense
+                                    ? '支出'
+                                    : _selectedType == LedgerRecordType.income
+                                    ? '收入'
+                                    : '理财',
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                            ],
+                          ),
+                        ),
                       const SizedBox(height: 20),
                       AppFormTextField(
                         controller: _nameController,

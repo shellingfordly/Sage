@@ -81,16 +81,26 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SegmentedButton<LedgerRecordType>(
+                    showSelectedIcon: false,
+                    style: SegmentedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                    ),
                     segments: const [
                       ButtonSegment(
                         value: LedgerRecordType.expense,
-                        label: Text('支出分类'),
-                        icon: Icon(Icons.trending_down),
+                        label: Text('支出'),
+                        icon: Icon(Icons.trending_down, size: 18),
                       ),
                       ButtonSegment(
                         value: LedgerRecordType.income,
-                        label: Text('收入分类'),
-                        icon: Icon(Icons.trending_up),
+                        label: Text('收入'),
+                        icon: Icon(Icons.trending_up, size: 18),
+                      ),
+                      ButtonSegment(
+                        value: LedgerRecordType.wealth,
+                        label: Text('理财'),
+                        icon: Icon(Icons.savings_outlined, size: 18),
                       ),
                     ],
                     selected: {_selectedType},
@@ -249,7 +259,11 @@ class _CategoryRowContent extends StatelessWidget {
         ),
         title: Text(category.name, style: AppTextStyles.bodyStrong(context)),
         subtitle: Text(
-          category.type == LedgerRecordType.expense ? '支出分类' : '收入分类',
+          category.type == LedgerRecordType.expense
+              ? '支出分类'
+              : category.type == LedgerRecordType.income
+              ? '收入分类'
+              : '理财分类',
           style: AppTextStyles.bodyMuted(context),
         ),
         trailing: Icon(
