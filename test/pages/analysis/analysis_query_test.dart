@@ -32,6 +32,14 @@ void main() {
       category: '交通',
       createdAt: DateTime(2026, 1, 10),
     ),
+    LedgerRecord(
+      id: '4',
+      title: '定存开户',
+      amount: 60000,
+      type: LedgerRecordType.expense,
+      category: '存款',
+      createdAt: DateTime(2026, 1, 15),
+    ),
   ];
 
   final now = DateTime(2026, 3, 5, 18);
@@ -87,6 +95,7 @@ void main() {
 
       expect(result.records.map((record) => record.title).toList(), [
         '地铁',
+        '定存开户',
         '工资',
         '午餐',
       ]);
@@ -102,8 +111,23 @@ void main() {
         now: now,
       );
 
-      expect(result.records.first.title, '工资');
+      expect(result.records.first.title, '定存开户');
       expect(result.records.last.title, '地铁');
+    });
+
+    test('excludes non-consumption when consumptionOnly is true', () {
+      final result = queryAnalysisRecords(
+        records,
+        const AnalysisFilters(
+          range: ExportRange.month,
+          typeFilter: AnalysisTypeFilter.expense,
+          consumptionOnly: true,
+        ),
+        now: now,
+      );
+
+      expect(result.records, hasLength(1));
+      expect(result.records.first.title, '午餐');
     });
   });
 
@@ -149,7 +173,7 @@ void main() {
       expect(groups[0].title, '3月');
       expect(groups[0].records.first.title, '午餐');
       expect(groups[1].title, '1月');
-      expect(groups[1].records.first.title, '地铁');
+      expect(groups[1].records.first.title, '定存开户');
     });
 
     test('uses compact custom range label for single-month custom range', () {
@@ -165,35 +189,6 @@ void main() {
 
       expect(groups, hasLength(1));
       expect(groups.first.title, '2026/03/01 - 03/31');
-    });
-  });
-
-  group('groupAnalysisRecordsByMonth', () {
-    test('returns single group with month title', () {
-      final groups = groupAnalysisRecordsByMonth([
-        records[0],
-        records[1],
-      ], now: now);
-
-      expect(groups, hasLength(1));
-      expect(groups.first.title, '3月');
-      expect(groups.first.records, hasLength(2));
-    });
-
-    test('splits records into month groups preserving order', () {
-      final sorted = queryAnalysisRecords(
-        records,
-        const AnalysisFilters(
-          range: ExportRange.year,
-          sort: AnalysisSortOption.timeDesc,
-        ),
-        now: now,
-      ).records;
-      final groups = groupAnalysisRecordsByMonth(sorted, now: now);
-
-      expect(groups, hasLength(2));
-      expect(groups[0].records.first.title, '午餐');
-      expect(groups[1].records.first.title, '地铁');
     });
   });
 }

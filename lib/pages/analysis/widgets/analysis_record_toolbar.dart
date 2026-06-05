@@ -14,6 +14,7 @@ class AnalysisRecordToolbar extends StatefulWidget {
     required this.sort,
     required this.onSortChanged,
     required this.onSearchChanged,
+    required this.onOpenAiInsight,
     this.decorated = true,
   });
 
@@ -22,6 +23,7 @@ class AnalysisRecordToolbar extends StatefulWidget {
   final AnalysisSortOption sort;
   final ValueChanged<AnalysisSortOption> onSortChanged;
   final VoidCallback onSearchChanged;
+  final VoidCallback onOpenAiInsight;
   final bool decorated;
 
   @override
@@ -74,6 +76,8 @@ class _AnalysisRecordToolbarState extends State<AnalysisRecordToolbar> {
                 active: _searchExpanded || hasQuery,
                 onTap: _toggleSearch,
               ),
+              const ToolbarIconDivider(),
+              _AiIconButton(onTap: widget.onOpenAiInsight),
               const ToolbarIconDivider(),
               AnalysisSortControls(
                 sort: widget.sort,
@@ -181,6 +185,36 @@ class _SearchIconButton extends StatelessWidget {
             Icons.search,
             size: 18,
             color: active ? colors.primary : colors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiIconButton extends StatelessWidget {
+  const _AiIconButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Tooltip(
+      message: '分析',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(
+              Icons.insights_outlined,
+              size: 18,
+              color: colors.primary.withValues(alpha: 0.85),
+            ),
           ),
         ),
       ),

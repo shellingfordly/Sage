@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'models/ai_insight_scope.dart';
 import 'pages/ai/ai_insight_route.dart';
+import 'pages/analysis/analysis_navigation.dart';
 import 'pages/analysis/analysis_page.dart';
 import 'pages/home_page.dart';
 import 'pages/profile/profile_page.dart';
@@ -56,6 +57,29 @@ class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   DateTime _selectedMonth = monthStart(DateTime.now());
 
+  static const _analysisTabIndex = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    analysisNavigationController.addListener(_onAnalysisNavigationIntent);
+  }
+
+  @override
+  void dispose() {
+    analysisNavigationController.removeListener(_onAnalysisNavigationIntent);
+    super.dispose();
+  }
+
+  void _onAnalysisNavigationIntent() {
+    if (analysisNavigationController.pending == null) {
+      return;
+    }
+    if (_selectedIndex != _analysisTabIndex) {
+      setState(() => _selectedIndex = _analysisTabIndex);
+    }
+  }
+
   void _changeMonth(int offset) {
     setState(() {
       _selectedMonth = DateTime(
@@ -88,7 +112,8 @@ class _MainShellState extends State<MainShell> {
   void _openAiInsightPage() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => AiInsightRoute(initialMonth: _selectedMonth),
+        builder: (context) =>
+            AiInsightRoute(scope: AiInsightScope.fromMonth(_selectedMonth)),
       ),
     );
   }
@@ -144,7 +169,7 @@ class _MainBottomNavBar extends StatelessWidget {
                 onTap: () => onDestinationSelected(0),
               ),
               _NavItem(
-                label: '分析',
+                label: '统计',
                 icon: Icons.manage_search_outlined,
                 selectedIcon: Icons.manage_search,
                 selected: selectedIndex == 1,

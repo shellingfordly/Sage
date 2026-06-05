@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ledger_app/components/time_range/export_range.dart';
 import '../../models/ledger_record.dart';
+import '../../services/ai/consumption_record_filter.dart';
 import '../../utils/ledger_formatters.dart';
 import '../../utils/record_import_parser.dart';
 
@@ -40,6 +41,7 @@ class AnalysisFilters {
     this.category,
     this.searchQuery = '',
     this.sort = AnalysisSortOption.timeDesc,
+    this.consumptionOnly = false,
   });
 
   final ExportRange range;
@@ -48,6 +50,7 @@ class AnalysisFilters {
   final String? category;
   final String searchQuery;
   final AnalysisSortOption sort;
+  final bool consumptionOnly;
 
   AnalysisFilters copyWith({
     ExportRange? range,
@@ -56,6 +59,7 @@ class AnalysisFilters {
     Object? category = _unset,
     String? searchQuery,
     AnalysisSortOption? sort,
+    bool? consumptionOnly,
   }) {
     return AnalysisFilters(
       range: range ?? this.range,
@@ -66,6 +70,7 @@ class AnalysisFilters {
       category: identical(category, _unset) ? this.category : category as String?,
       searchQuery: searchQuery ?? this.searchQuery,
       sort: sort ?? this.sort,
+      consumptionOnly: consumptionOnly ?? this.consumptionOnly,
     );
   }
 
@@ -108,6 +113,9 @@ AnalysisQueryResult queryAnalysisRecords(
   );
   final filtered = periodRecords.where((record) {
     if (!_matchesType(record, filters.typeFilter)) {
+      return false;
+    }
+    if (filters.consumptionOnly && !isConsumptionExpense(record)) {
       return false;
     }
     if (filters.category != null && record.category != filters.category) {
@@ -235,13 +243,6 @@ List<AnalysisRecordGroup> groupAnalysisRecords(
         now: reference,
       ),
   };
-}
-
-List<AnalysisRecordGroup> groupAnalysisRecordsByMonth(
-  List<LedgerRecord> records, {
-  DateTime? now,
-}) {
-  return _groupRecordsByMonthTitle(records, now: now ?? DateTime.now());
 }
 
 List<AnalysisRecordGroup> _groupCustomRangeRecords(

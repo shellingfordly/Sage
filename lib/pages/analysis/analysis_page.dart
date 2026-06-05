@@ -4,10 +4,13 @@ import '../../components/pickers/record_date_picker.dart';
 import 'package:ledger_app/components/time_range/export_range.dart';
 import 'package:ledger_app/components/time_range/time_range_panel.dart';
 import '../../data/ledger_store.dart';
+import '../../models/ai_insight_scope.dart';
+import '../ai/ai_insight_route.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/ledger_formatters.dart';
+import 'analysis_navigation.dart';
 import 'analysis_query.dart';
 import 'widgets/analysis_filter_bar.dart';
 import 'widgets/analysis_record_list.dart';
@@ -32,14 +35,42 @@ class _AnalysisPageState extends State<AnalysisPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    analysisNavigationController.addListener(_onNavigationIntent);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyPendingDrillDownIfNeeded();
+    });
   }
 
   @override
   void dispose() {
+    analysisNavigationController.removeListener(_onNavigationIntent);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onNavigationIntent() {
+    if (analysisNavigationController.pending == null) {
+      return;
+    }
+    _applyPendingDrillDownIfNeeded();
+  }
+
+  void _applyPendingDrillDownIfNeeded() {
+    final drillDown = analysisNavigationController.consumePending();
+    if (drillDown == null || !mounted) {
+      return;
+    }
+    _searchController.text = drillDown.searchQuery ?? '';
+    setState(() {
+      _customRange = drillDown.dateRange;
+      _filters = drillDown.toFilters();
+      _visibleCount = analysisRecordPageSize;
+    });
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
   }
 
   void _onScroll() {
@@ -131,10 +162,25 @@ class _AnalysisPageState extends State<AnalysisPage> {
     _applyFilters(_filters.copyWith(sort: sort));
   }
 
+  void _openAiInsightPage(DateTime now) {
+    final scope = AiInsightScope.fromExportRange(
+      range: _filters.range,
+      customRange: _customRange,
+      now: now,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => AiInsightRoute(scope: scope),
+      ),
+    );
+  }
+
   bool get _hasActiveFilters {
     return _filters.typeFilter != AnalysisTypeFilter.all ||
         _filters.category != null ||
-        _filters.searchQuery.trim().isNotEmpty;
+        _filters.searchQuery.trim().isNotEmpty ||
+        _filters.consumptionOnly;
   }
 
   @override
@@ -177,7 +223,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    Text('账单分析', style: AppTextStyles.pageTitle(context)),
+                    Text('统计', style: AppTextStyles.pageTitle(context)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '按时段筛选收支，查看账单明细',
+                      style: AppTextStyles.pageSubtitle(context),
+                    ),
                     const SizedBox(height: 12),
                     TimeRangePanel(
                       selectedRange: _filters.range,
@@ -199,6 +250,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                       sort: _filters.sort,
                       onSortChanged: _onSortChanged,
                       onSearchChanged: _onSearchChanged,
+                      onOpenAiInsight: () => _openAiInsightPage(today),
                     ),
                     const SizedBox(height: 12),
                     _SummaryTiles(
@@ -236,6 +288,7 @@ class _AnalysisControlsPanel extends StatelessWidget {
     required this.sort,
     required this.onSortChanged,
     required this.onSearchChanged,
+    required this.onOpenAiInsight,
   });
 
   final AnalysisTypeFilter typeFilter;
@@ -248,6 +301,7 @@ class _AnalysisControlsPanel extends StatelessWidget {
   final AnalysisSortOption sort;
   final ValueChanged<AnalysisSortOption> onSortChanged;
   final VoidCallback onSearchChanged;
+  final VoidCallback onOpenAiInsight;
 
   @override
   Widget build(BuildContext context) {
@@ -274,6 +328,7 @@ class _AnalysisControlsPanel extends StatelessWidget {
             sort: sort,
             onSortChanged: onSortChanged,
             onSearchChanged: onSearchChanged,
+            onOpenAiInsight: onOpenAiInsight,
             decorated: false,
           ),
         ],
