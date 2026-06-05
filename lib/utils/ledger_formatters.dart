@@ -29,12 +29,16 @@ String formatRecordAmount(LedgerRecord record) {
   return formatCurrency(amount, signed: true);
 }
 
-String formatMonthTitle(DateTime date, {DateTime? now}) {
+String formatMonthTitle(
+  DateTime date, {
+  DateTime? now,
+  bool includeLedgerSuffix = true,
+}) {
   final current = now ?? DateTime.now();
-  if (date.year == current.year) {
-    return '${date.month}月账本';
-  }
-  return '${date.year}年${date.month}月账本';
+  final label = date.year == current.year
+      ? '${date.month}月'
+      : '${date.year}年${date.month}月';
+  return includeLedgerSuffix ? '$label账本' : label;
 }
 
 DateTime monthStart(DateTime date) => DateTime(date.year, date.month, 1);

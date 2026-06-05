@@ -2,8 +2,35 @@ import 'package:flutter/material.dart';
 
 import 'package:ledger_app/components/time_range/export_range.dart';
 import '../../models/ledger_record.dart';
+import '../../utils/ledger_formatters.dart';
+import '../../utils/record_import_parser.dart';
 
 enum AnalysisTypeFilter { all, expense, income }
+
+enum AnalysisSortOption {
+  timeDesc,
+  timeAsc,
+  amountDesc,
+  amountAsc,
+}
+
+extension AnalysisSortOptionLabel on AnalysisSortOption {
+  bool get isTimeSort =>
+      this == AnalysisSortOption.timeDesc || this == AnalysisSortOption.timeAsc;
+
+  bool get isAmountSort =>
+      this == AnalysisSortOption.amountDesc || this == AnalysisSortOption.amountAsc;
+
+  bool get isAscending =>
+      this == AnalysisSortOption.timeAsc || this == AnalysisSortOption.amountAsc;
+
+  AnalysisSortOption toggleDirection() => switch (this) {
+    AnalysisSortOption.timeDesc => AnalysisSortOption.timeAsc,
+    AnalysisSortOption.timeAsc => AnalysisSortOption.timeDesc,
+    AnalysisSortOption.amountDesc => AnalysisSortOption.amountAsc,
+    AnalysisSortOption.amountAsc => AnalysisSortOption.amountDesc,
+  };
+}
 
 class AnalysisFilters {
   const AnalysisFilters({
@@ -12,6 +39,7 @@ class AnalysisFilters {
     this.typeFilter = AnalysisTypeFilter.all,
     this.category,
     this.searchQuery = '',
+    this.sort = AnalysisSortOption.timeDesc,
   });
 
   final ExportRange range;
@@ -19,6 +47,7 @@ class AnalysisFilters {
   final AnalysisTypeFilter typeFilter;
   final String? category;
   final String searchQuery;
+  final AnalysisSortOption sort;
 
   AnalysisFilters copyWith({
     ExportRange? range,
@@ -26,6 +55,7 @@ class AnalysisFilters {
     AnalysisTypeFilter? typeFilter,
     Object? category = _unset,
     String? searchQuery,
+    AnalysisSortOption? sort,
   }) {
     return AnalysisFilters(
       range: range ?? this.range,
@@ -35,10 +65,21 @@ class AnalysisFilters {
       typeFilter: typeFilter ?? this.typeFilter,
       category: identical(category, _unset) ? this.category : category as String?,
       searchQuery: searchQuery ?? this.searchQuery,
+      sort: sort ?? this.sort,
     );
   }
 
   static const _unset = Object();
+}
+
+class AnalysisRecordGroup {
+  const AnalysisRecordGroup({
+    required this.title,
+    required this.records,
+  });
+
+  final String title;
+  final List<LedgerRecord> records;
 }
 
 class AnalysisQueryResult {
@@ -76,8 +117,9 @@ AnalysisQueryResult queryAnalysisRecords(
       return false;
     }
     return true;
-  }).toList()
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }).toList();
+
+  _sortAnalysisRecords(filtered, filters.sort);
 
   var income = 0.0;
   var expense = 0.0;
@@ -131,4 +173,141 @@ List<String> analysisCategoriesInPeriod(
   }
   final result = names.toList()..sort();
   return result;
+}
+
+void _sortAnalysisRecords(
+  List<LedgerRecord> records,
+  AnalysisSortOption sort,
+) {
+  switch (sort) {
+    case AnalysisSortOption.timeDesc:
+      records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    case AnalysisSortOption.timeAsc:
+      records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    case AnalysisSortOption.amountDesc:
+      records.sort((a, b) {
+        final amountCompare = b.amount.compareTo(a.amount);
+        if (amountCompare != 0) {
+          return amountCompare;
+        }
+        return b.createdAt.compareTo(a.createdAt);
+      });
+    case AnalysisSortOption.amountAsc:
+      records.sort((a, b) {
+        final amountCompare = a.amount.compareTo(b.amount);
+        if (amountCompare != 0) {
+          return amountCompare;
+        }
+        return a.createdAt.compareTo(b.createdAt);
+      });
+  }
+}
+
+List<AnalysisRecordGroup> groupAnalysisRecords(
+  List<LedgerRecord> records, {
+  required ExportRange range,
+  DateTimeRange? customRange,
+  DateTime? now,
+}) {
+  if (records.isEmpty) {
+    return const [];
+  }
+
+  final reference = now ?? DateTime.now();
+
+  return switch (range) {
+    ExportRange.week ||
+    ExportRange.month ||
+    ExportRange.lastMonth =>
+      [
+        AnalysisRecordGroup(
+          title: exportRangeLabel(range),
+          records: records,
+        ),
+      ],
+    ExportRange.custom => _groupCustomRangeRecords(
+        records,
+        customRange: customRange,
+        now: reference,
+      ),
+    ExportRange.year || ExportRange.lastYear => _groupRecordsByMonthTitle(
+        records,
+        now: reference,
+      ),
+  };
+}
+
+List<AnalysisRecordGroup> groupAnalysisRecordsByMonth(
+  List<LedgerRecord> records, {
+  DateTime? now,
+}) {
+  return _groupRecordsByMonthTitle(records, now: now ?? DateTime.now());
+}
+
+List<AnalysisRecordGroup> _groupCustomRangeRecords(
+  List<LedgerRecord> records, {
+  DateTimeRange? customRange,
+  required DateTime now,
+}) {
+  final monthKeys = records
+      .map((record) => DateTime(record.createdAt.year, record.createdAt.month))
+      .toSet();
+  if (monthKeys.length > 1) {
+    return _groupRecordsByMonthTitle(records, now: now);
+  }
+
+  final bounds = exportRangeBounds(
+    range: ExportRange.custom,
+    customRange: customRange,
+    now: now,
+  );
+  final title = bounds == null
+      ? exportRangeLabel(ExportRange.custom)
+      : formatDateRangeLabelCompact(bounds.start, bounds.end);
+
+  return [
+    AnalysisRecordGroup(title: title, records: records),
+  ];
+}
+
+List<AnalysisRecordGroup> _groupRecordsByMonthTitle(
+  List<LedgerRecord> records, {
+  required DateTime now,
+}) {
+  if (records.isEmpty) {
+    return const [];
+  }
+
+  final groups = <AnalysisRecordGroup>[];
+  DateTime? currentMonth;
+  List<LedgerRecord>? currentRecords;
+
+  for (final record in records) {
+    final month = DateTime(record.createdAt.year, record.createdAt.month);
+    if (currentMonth == null || month != currentMonth) {
+      if (currentRecords != null && currentMonth != null) {
+        groups.add(
+          AnalysisRecordGroup(
+            title: formatMonthTitle(currentMonth, now: now, includeLedgerSuffix: false),
+            records: currentRecords,
+          ),
+        );
+      }
+      currentMonth = month;
+      currentRecords = [record];
+    } else {
+      currentRecords!.add(record);
+    }
+  }
+
+  if (currentRecords != null && currentMonth != null) {
+    groups.add(
+      AnalysisRecordGroup(
+        title: formatMonthTitle(currentMonth, now: now, includeLedgerSuffix: false),
+        records: currentRecords,
+      ),
+    );
+  }
+
+  return groups;
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ledger_app/models/ledger_record.dart';
@@ -29,7 +30,7 @@ void main() {
       amount: 6,
       type: LedgerRecordType.expense,
       category: '交通',
-      createdAt: DateTime(2025, 12, 10),
+      createdAt: DateTime(2026, 1, 10),
     ),
   ];
 
@@ -55,8 +56,7 @@ void main() {
         now: now,
       );
 
-      expect(result.records, hasLength(1));
-      expect(result.records.first.title, '地铁');
+      expect(result.records, isEmpty);
     });
 
     test('filters by type, category and search', () {
@@ -73,6 +73,127 @@ void main() {
 
       expect(result.records, hasLength(1));
       expect(result.records.first.title, '午餐');
+    });
+
+    test('sorts by time ascending', () {
+      final result = queryAnalysisRecords(
+        records,
+        const AnalysisFilters(
+          range: ExportRange.year,
+          sort: AnalysisSortOption.timeAsc,
+        ),
+        now: now,
+      );
+
+      expect(result.records.map((record) => record.title).toList(), [
+        '地铁',
+        '工资',
+        '午餐',
+      ]);
+    });
+
+    test('sorts by amount descending', () {
+      final result = queryAnalysisRecords(
+        records,
+        const AnalysisFilters(
+          range: ExportRange.year,
+          sort: AnalysisSortOption.amountDesc,
+        ),
+        now: now,
+      );
+
+      expect(result.records.first.title, '工资');
+      expect(result.records.last.title, '地铁');
+    });
+  });
+
+  group('groupAnalysisRecords', () {
+    test('uses preset label for month range', () {
+      final groups = groupAnalysisRecords(
+        [records[0], records[1]],
+        range: ExportRange.month,
+        now: now,
+      );
+
+      expect(groups, hasLength(1));
+      expect(groups.first.title, '本月');
+      expect(groups.first.records, hasLength(2));
+    });
+
+    test('uses preset label for week range', () {
+      final groups = groupAnalysisRecords(
+        [records[0]],
+        range: ExportRange.week,
+        now: now,
+      );
+
+      expect(groups.single.title, '本周');
+    });
+
+    test('splits year records into month titled groups', () {
+      final sorted = queryAnalysisRecords(
+        records,
+        const AnalysisFilters(
+          range: ExportRange.year,
+          sort: AnalysisSortOption.timeDesc,
+        ),
+        now: now,
+      ).records;
+      final groups = groupAnalysisRecords(
+        sorted,
+        range: ExportRange.year,
+        now: now,
+      );
+
+      expect(groups, hasLength(2));
+      expect(groups[0].title, '3月');
+      expect(groups[0].records.first.title, '午餐');
+      expect(groups[1].title, '1月');
+      expect(groups[1].records.first.title, '地铁');
+    });
+
+    test('uses compact custom range label for single-month custom range', () {
+      final groups = groupAnalysisRecords(
+        [records[0], records[1]],
+        range: ExportRange.custom,
+        customRange: DateTimeRange(
+          start: DateTime(2026, 3, 1),
+          end: DateTime(2026, 3, 31),
+        ),
+        now: now,
+      );
+
+      expect(groups, hasLength(1));
+      expect(groups.first.title, '2026/03/01 - 03/31');
+    });
+  });
+
+  group('groupAnalysisRecordsByMonth', () {
+    test('returns single group with month title', () {
+      final groups = groupAnalysisRecordsByMonth([
+        records[0],
+        records[1],
+      ], now: now);
+
+      expect(groups, hasLength(1));
+      expect(groups.first.title, '3月');
+      expect(groups.first.records, hasLength(2));
+    });
+
+    test('splits records into month groups preserving order', () {
+      final sorted = queryAnalysisRecords(
+        records,
+        const AnalysisFilters(
+          range: ExportRange.year,
+          sort: AnalysisSortOption.timeDesc,
+        ),
+        now: now,
+      ).records;
+      final groups = groupAnalysisRecordsByMonth(sorted, now: now);
+
+      expect(groups, hasLength(2));
+      expect(groups[0].records.first.title, '午餐');
+      expect(groups[1].records.first.title, '地铁');
     });
   });
 }
