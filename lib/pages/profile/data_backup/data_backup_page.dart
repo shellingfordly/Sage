@@ -303,7 +303,6 @@ class _ExportSection extends StatelessWidget {
             periodRangeText: rangeText,
             customRange: customRange,
             enabled: !busy,
-            decorated: false,
             onRangeChanged: onRangeChanged,
             onPickCustomRange: onPickCustomRange,
             onClearCustomRange: onClearCustomRange,

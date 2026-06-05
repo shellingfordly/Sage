@@ -19,7 +19,6 @@ class TimeRangePanel extends StatelessWidget {
     this.onPickCustomRange,
     this.onClearCustomRange,
     this.enabled = true,
-    this.decorated = true,
     this.presets = defaultExportRangePresets,
     this.customRangeHelpText = '选择时间范围',
   });
@@ -31,7 +30,6 @@ class TimeRangePanel extends StatelessWidget {
   final VoidCallback? onPickCustomRange;
   final VoidCallback? onClearCustomRange;
   final bool enabled;
-  final bool decorated;
   final List<ExportRange> presets;
   final String customRangeHelpText;
 
@@ -78,10 +76,6 @@ class TimeRangePanel extends StatelessWidget {
         _TimeRangeFooter(periodRangeText: periodRangeText),
       ],
     );
-
-    if (!decorated) {
-      return content;
-    }
 
     return Container(
       width: double.infinity,
@@ -371,6 +365,9 @@ class _TimeRangeFooter extends StatelessWidget {
         color: Color.alphaBlend(
           colors.primary.withValues(alpha: 0.08),
           colors.surface,
+        ),
+        borderRadius: BorderRadius.vertical(
+          bottom: AppRadii.card.bottomLeft,
         ),
         border: Border(
           top: BorderSide(
