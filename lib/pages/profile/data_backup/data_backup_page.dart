@@ -317,7 +317,7 @@ class _ExportSection extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: busy ? null : onPreview,
                   icon: const Icon(Icons.visibility_outlined),
-                  label: const Text('预览导出数据'),
+                  label: const Text('预览数据'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -325,7 +325,7 @@ class _ExportSection extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: busy ? null : onExport,
                   icon: const Icon(Icons.file_download_outlined),
-                  label: Text(busy ? '处理中...' : '导出 Excel'),
+                  label: Text(busy ? '处理中...' : '导出账单'),
                 ),
               ),
             ],
@@ -367,7 +367,7 @@ class _ImportSection extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: busy ? null : onImportExcel,
               icon: const Icon(Icons.file_upload_outlined),
-              label: const Text('导入 Excel / CSV'),
+              label: const Text('导入默认账单'),
             ),
           ),
           const SizedBox(height: 10),
@@ -376,7 +376,7 @@ class _ImportSection extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: busy ? null : onImportPdf,
               icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text('导入 PDF 账单'),
+              label: const Text('导入银行卡账单'),
             ),
           ),
           const SizedBox(height: 10),
