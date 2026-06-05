@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 import '../models/ledger_record.dart';
 
 String formatCurrency(double amount, {bool signed = false}) {
@@ -81,28 +79,6 @@ String homeSubtitleForMonth(DateTime month, {DateTime? now}) {
   return '查看${month.month}月账单与预算情况';
 }
 
-String formatAiAnalysisTitle(DateTime month, {DateTime? now}) {
-  final current = now ?? DateTime.now();
-  if (month.year == current.year) {
-    return '${month.month}月 AI 分析';
-  }
-  return '${month.year}年${month.month}月 AI 分析';
-}
-
-String aiAnalysisSubtitleForMonth(DateTime month, {DateTime? now}) {
-  if (isCurrentMonth(month, now: now)) {
-    return '预算预警、异常消费与优化建议';
-  }
-  return '查看该月预算预警、异常消费与优化建议';
-}
-
-String monthOverviewLabel(DateTime month, {DateTime? now}) {
-  if (isCurrentMonth(month, now: now)) {
-    return '本月概览';
-  }
-  return '${month.month}月概览';
-}
-
 String formatRecordDate(DateTime date, {DateTime? now}) {
   final current = now ?? DateTime.now();
   final today = DateTime(current.year, current.month, current.day);
@@ -120,29 +96,6 @@ String formatRecordDate(DateTime date, {DateTime? now}) {
     return '${date.month}月${date.day}日';
   }
   return '${date.year}年${date.month}月${date.day}日';
-}
-
-IconData iconForCategory(String category, LedgerRecordType type) {
-  if (type == LedgerRecordType.income) {
-    return switch (category) {
-      '工资' => Icons.work_outline,
-      '奖金' => Icons.workspace_premium_outlined,
-      '理财' => Icons.trending_up,
-      '兼职' => Icons.business_center_outlined,
-      _ => Icons.payments_outlined,
-    };
-  }
-
-  return switch (category) {
-    '餐饮' => Icons.restaurant_outlined,
-    '交通' => Icons.directions_bus_outlined,
-    '购物' => Icons.shopping_bag_outlined,
-    '居住' => Icons.home_outlined,
-    '娱乐' => Icons.movie_outlined,
-    '医疗' => Icons.local_hospital_outlined,
-    '学习' => Icons.school_outlined,
-    _ => Icons.receipt_long_outlined,
-  };
 }
 
 String monthlyComparisonText(double currentBalance, double previousBalance) {

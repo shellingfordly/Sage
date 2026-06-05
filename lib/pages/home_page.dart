@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../models/ai_insight_models.dart';
+import '../models/ai_insight_scope.dart';
 import '../services/ai/ai_insight_cache.dart';
 import '../services/ai/ai_insight_engine.dart';
 import '../services/ai/ai_home_alert_service.dart';
@@ -54,15 +55,18 @@ class HomePage extends StatelessWidget {
         final budget = ledgerStore.monthlyBudgetFor(selectedMonth);
         final balance = income - expense;
         final previousBalance = ledgerStore.balanceForMonth(previousMonth);
+        final monthScope = AiInsightScope.fromMonth(selectedMonth, now: now);
         final aiSnapshot = _aiInsightCache.getOrBuild(
           ledgerId: ledgerStore.currentLedger.id,
+          scope: monthScope,
           records: ledgerStore.records,
-          monthlyBudget: budget,
+          budget: budget,
           mode: AiSuggestionMode.balanced,
-          now: monthReference,
+          reference: monthReference,
           builder: () => _aiInsightEngine.buildSnapshot(
             records: ledgerStore.records,
-            monthlyBudget: budget,
+            scope: monthScope,
+            budget: budget,
             mode: AiSuggestionMode.balanced,
             now: monthReference,
           ),
@@ -145,7 +149,7 @@ class _AiAlertCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('AI 风险提醒', style: AppTextStyles.bodyStrong(context)),
+                Text('消费提醒', style: AppTextStyles.bodyStrong(context)),
                 const SizedBox(height: 4),
                 Text(warningText, style: AppTextStyles.bodyMuted(context)),
               ],

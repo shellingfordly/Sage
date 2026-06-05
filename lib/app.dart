@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'models/ai_insight_scope.dart';
 import 'pages/ai/ai_insight_route.dart';
 import 'pages/analysis/analysis_page.dart';
 import 'pages/home_page.dart';

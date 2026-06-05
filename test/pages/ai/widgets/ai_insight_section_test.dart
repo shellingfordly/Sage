@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledger_app/models/ai_insight_models.dart';
-import 'package:ledger_app/services/ai/ai_insight_explainer.dart';
+import 'package:ledger_app/models/ai_insight_scope.dart';
 import 'package:ledger_app/pages/ai/widgets/ai_insight_section.dart';
 import 'package:ledger_app/theme/app_colors.dart';
 import 'package:ledger_app/theme/app_theme.dart';
+import '../../../services/ai/ai_insight_test_helpers.dart';
 
 void main() {
-  testWidgets('shows budget management shortcut in budget risk detail', (
-    tester,
-  ) async {
-    final snapshot = _snapshot();
+  testWidgets('shows headline and comparison panels', (tester) async {
+    final snapshot = testInsightSnapshot();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -22,23 +21,23 @@ void main() {
           body: SingleChildScrollView(
             child: AiInsightSection(
               snapshot: snapshot,
-              explainer: const AiInsightExplainer(),
+              scope: AiInsightScope.fromMonth(DateTime(2026, 6, 1)),
             ),
           ),
         ),
       ),
     );
 
-    await tester.tap(find.text('预算风险'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('去预算管理'), findsOneWidget);
+    expect(find.text('核心结论'), findsOneWidget);
+    expect(find.text('时段对比'), findsOneWidget);
+    expect(find.text('值得关注'), findsOneWidget);
+    expect(find.text('查看账单'), findsOneWidget);
   });
 
-  testWidgets('expands risk and anomaly by default when requested', (
+  testWidgets('shows next month budget panel only for single month scope', (
     tester,
   ) async {
-    final snapshot = _snapshot();
+    final snapshot = testInsightSnapshot();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -50,24 +49,22 @@ void main() {
           body: SingleChildScrollView(
             child: AiInsightSection(
               snapshot: snapshot,
-              explainer: const AiInsightExplainer(),
-              defaultExpandRiskAndAnomaly: true,
+              scope: AiInsightScope.fromMonth(DateTime(2026, 6, 1)),
             ),
           ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
 
-    expect(find.textContaining('当前账本未设置预算'), findsOneWidget);
-    expect(find.textContaining('未检测到明显异常消费。'), findsOneWidget);
-    expect(find.textContaining('本月收入'), findsNothing);
+    expect(find.text('下月预算建议'), findsOneWidget);
   });
 
-  testWidgets('shows inline answer when tapping preset question', (
+  testWidgets('hides next month budget panel for multi-month scope', (
     tester,
   ) async {
-    final snapshot = _snapshot();
+    final snapshot = testInsightSnapshot(
+      comparison: testComparison(currentExpense: 5000, previousExpense: 4000),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -79,25 +76,52 @@ void main() {
           body: SingleChildScrollView(
             child: AiInsightSection(
               snapshot: snapshot,
-              explainer: const AiInsightExplainer(),
+              scope: AiInsightScope(
+                start: DateTime(2026, 1, 1),
+                end: DateTime(2026, 12, 31, 23, 59, 59),
+                label: '2026/01/01 - 2026/12/31',
+              ),
             ),
           ),
         ),
       ),
     );
 
-    await tester.tap(find.text('我本月为什么超支？'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('超支原因分析'), findsOneWidget);
+    expect(find.text('下月预算建议'), findsNothing);
   });
 
-  testWidgets('notifies when budget risk or anomaly accordion is tapped', (
+  testWidgets('shows monthly volatility panel for multi-month data', (
     tester,
   ) async {
-    final snapshot = _snapshot();
-    var budgetOpened = false;
-    var anomalyOpened = false;
+    final snapshot = testInsightSnapshot(
+      monthlyVolatility: testMonthlyVolatility(
+        peakMonth: FinanceMonthExpense(
+          month: DateTime(2026, 6, 1),
+          expense: 3000,
+          deviationFromAverage: 2000,
+          deviationPercent: 2.0,
+          topCategory: '餐饮',
+          topCategoryAmount: 1800,
+        ),
+        monthlyTotals: <FinanceMonthExpense>[
+          FinanceMonthExpense(
+            month: DateTime(2026, 6, 1),
+            expense: 3000,
+            deviationFromAverage: 2000,
+            deviationPercent: 2.0,
+            topCategory: '餐饮',
+            topCategoryAmount: 1800,
+          ),
+          FinanceMonthExpense(
+            month: DateTime(2026, 5, 1),
+            expense: 1000,
+            deviationFromAverage: 0,
+            deviationPercent: 0,
+          ),
+        ],
+        periodAverage: 1000,
+      ),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -109,65 +133,62 @@ void main() {
           body: SingleChildScrollView(
             child: AiInsightSection(
               snapshot: snapshot,
-              explainer: const AiInsightExplainer(),
-              onBudgetRiskOpened: () => budgetOpened = true,
-              onAnomalyOpened: () => anomalyOpened = true,
+              scope: AiInsightScope(
+                start: DateTime(2026, 1, 1),
+                end: DateTime(2026, 12, 31, 23, 59, 59),
+                label: '2026/01/01 - 2026/12/31',
+              ),
             ),
           ),
         ),
       ),
     );
 
-    await tester.tap(find.text('预算风险'));
-    await tester.pumpAndSettle();
-    expect(budgetOpened, isTrue);
-
-    await tester.tap(find.text('异常消费'));
-    await tester.pumpAndSettle();
-    expect(anomalyOpened, isTrue);
+    expect(find.text('波动最大月份'), findsOneWidget);
+    expect(find.textContaining('2026年6月'), findsOneWidget);
+    expect(find.text('查看该月账单'), findsOneWidget);
+    expect(find.text('查看该月餐饮'), findsOneWidget);
   });
-}
 
-AiInsightSnapshot _snapshot() {
-  return AiInsightSnapshot(
-    overview: const AiOverviewInsight(
-      totalIncome: 5000,
-      totalExpense: 1200,
-      balance: 3800,
-      dailyAvgExpense: 60,
-      topCategories: <AiCategoryShare>[
-        AiCategoryShare(category: '餐饮', amount: 600, percent: 0.5),
-      ],
-      summary: 'summary',
-    ),
-    budgetRisk: const AiBudgetRiskInsight(
-      hasBudget: false,
-      monthlyBudget: 0,
-      expense: 1200,
-      usageRate: 0,
-      timeProgress: 0.5,
-      forecastOverrun: 0,
-      riskLevel: AiRiskLevel.attention,
-      summary: 'risk summary',
-      suggestion: 'risk suggestion',
-    ),
-    anomalies: const AiAnomalyInsight(
-      items: <AiAnomalyItem>[],
-      summary: 'anomaly summary',
-    ),
-    budgetSuggestion: const AiBudgetSuggestionInsight(
-      mode: AiSuggestionMode.balanced,
-      totalSuggested: 3000,
-      byCategory: <AiCategoryBudgetSuggestion>[
-        AiCategoryBudgetSuggestion(
-          category: '餐饮',
-          currentMonthSpend: 1000,
-          suggestedBudget: 900,
-          delta: -100,
+  testWidgets('shows drill-down link on category change row', (tester) async {
+    final snapshot = testInsightSnapshot(
+      comparison: FinanceComparisonInsight(
+        currentExpense: 1500,
+        previousExpense: 1000,
+        changeAmount: 500,
+        changePercent: 0.5,
+        previousPeriodLabel: '上一时段',
+        categoryChanges: const <FinanceCategoryChange>[
+          FinanceCategoryChange(
+            category: '餐饮',
+            currentAmount: 900,
+            previousAmount: 400,
+            changeAmount: 500,
+            changePercent: 1.25,
+          ),
+        ],
+        summary: 'summary',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.fromPalette(
+          brightness: Brightness.light,
+          colors: AppPalette.light,
         ),
-      ],
-      summary: 'suggestion summary',
-    ),
-    generatedAt: DateTime(2026, 6, 1),
-  );
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: AiInsightSection(
+              snapshot: snapshot,
+              scope: AiInsightScope.fromMonth(DateTime(2026, 6, 1)),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('分类变化'), findsOneWidget);
+    expect(find.text('查看账单'), findsWidgets);
+  });
 }
