@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/ledger_store.dart';
 import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
+import '../models/wealth_meta.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
@@ -48,16 +49,24 @@ class _AddRecordPageState extends State<AddRecordPage> {
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
+  final _annualRateController = TextEditingController();
 
   late LedgerRecordType _type;
   late String _category;
   DateTime _selectedDate = DateTime.now();
+  DateTime? _maturityDate;
+  bool _remindOnMaturity = false;
   bool _saving = false;
 
   bool get _isEditing => widget.editingRecord != null;
 
   bool get _showMethod =>
       _isEditing && widget.editingRecord!.source.isNotEmpty;
+
+  bool get _isWealth => _type == LedgerRecordType.wealth;
+
+  bool get _lockRecordType =>
+      _isEditing && widget.editingRecord!.isWealth;
 
   @override
   void initState() {
@@ -70,14 +79,19 @@ class _AddRecordPageState extends State<AddRecordPage> {
       _titleController.text = editingRecord.title;
       _amountController.text = editingRecord.amount.toStringAsFixed(2);
       _notesController.text = editingRecord.notes;
+      if (editingRecord.isWealth) {
+        final meta = editingRecord.wealthMeta;
+        if (meta.annualRate != null) {
+          _annualRateController.text = meta.annualRate!.toStringAsFixed(2);
+        }
+        _maturityDate = meta.maturityDate;
+        _remindOnMaturity = meta.remindOnMaturity;
+      }
       return;
     }
 
     _type = widget.initialType;
-    _category =
-        _categoriesFor(_type).map((item) => item.name).contains(widget.initialCategory)
-        ? widget.initialCategory!
-        : _categoriesFor(_type).first.name;
+    _category = _resolveCategory(_type, widget.initialCategory);
   }
 
   @override
@@ -85,6 +99,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
     _titleController.dispose();
     _amountController.dispose();
     _notesController.dispose();
+    _annualRateController.dispose();
     super.dispose();
   }
 
@@ -105,55 +120,96 @@ class _AddRecordPageState extends State<AddRecordPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isEditing ? '修改账单信息' : '记录一笔新的收支',
+                  _isEditing ? '修改账单信息' : '记录一笔新的收支或理财',
                   style: AppTextStyles.pageSubtitle(context),
                 ),
                 const SizedBox(height: 20),
-                SegmentedButton<LedgerRecordType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: LedgerRecordType.expense,
-                      label: Text('支出'),
-                      icon: Icon(Icons.trending_down),
+                if (_lockRecordType) ...[
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: '类型',
+                      border: OutlineInputBorder(borderRadius: AppRadii.card),
                     ),
-                    ButtonSegment(
-                      value: LedgerRecordType.income,
-                      label: Text('收入'),
-                      icon: Icon(Icons.trending_up),
+                    child: Row(
+                      children: [
+                        Icon(Icons.savings_outlined, color: colors.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          '理财',
+                          style: AppTextStyles.bodyStrong(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '理财记录独立于收支结余，编辑时不可改为收入或支出。',
+                    style: AppTextStyles.bodyMuted(context),
+                  ),
+                ] else ...[
+                  SegmentedButton<LedgerRecordType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: LedgerRecordType.expense,
+                        label: Text('支出'),
+                        icon: Icon(Icons.trending_down),
+                      ),
+                      ButtonSegment(
+                        value: LedgerRecordType.income,
+                        label: Text('收入'),
+                        icon: Icon(Icons.trending_up),
+                      ),
+                      ButtonSegment(
+                        value: LedgerRecordType.wealth,
+                        label: Text('理财'),
+                        icon: Icon(Icons.savings_outlined),
+                      ),
+                    ],
+                    selected: {_type},
+                    onSelectionChanged: _saving
+                        ? null
+                        : (values) {
+                            final nextType = values.first;
+                            setState(() {
+                              _type = nextType;
+                              _category = _resolveCategory(nextType, _category);
+                            });
+                          },
+                  ),
+                  if (_isWealth) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '理财记录独立于收支结余。存入填正数，取出填负数；可填写利率与到期日以便统计。',
+                      style: AppTextStyles.bodyMuted(context),
                     ),
                   ],
-                  selected: {_type},
-                  onSelectionChanged: _saving
-                      ? null
-                      : (values) {
-                          final nextType = values.first;
-                          final nextCategories = _categoriesFor(nextType);
-                          setState(() {
-                            _type = nextType;
-                            _category =
-                                nextCategories
-                                    .map((item) => item.name)
-                                    .contains(_category)
-                                ? _category
-                                : nextCategories.first.name;
-                          });
-                        },
-                ),
+                ],
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _amountController,
                   enabled: !_saving,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
+                    signed: true,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '金额',
                     prefixText: '¥ ',
-                    border: OutlineInputBorder(borderRadius: AppRadii.card),
+                    helperText: _isWealth ? '存入填正数，取出填负数' : null,
+                    border: const OutlineInputBorder(borderRadius: AppRadii.card),
                   ),
                   validator: (value) {
                     final amount = double.tryParse((value ?? '').trim());
-                    if (amount == null || amount <= 0) {
+                    if (amount == null) {
+                      return '请输入有效金额';
+                    }
+                    if (_isWealth) {
+                      if (amount == 0) {
+                        return '理财金额不能为 0';
+                      }
+                      return null;
+                    }
+                    if (amount <= 0) {
                       return '请输入大于 0 的金额';
                     }
                     return null;
@@ -164,10 +220,10 @@ class _AddRecordPageState extends State<AddRecordPage> {
                   controller: _titleController,
                   enabled: !_saving,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '名称',
-                    hintText: '例如：午餐、地铁、工资',
-                    border: OutlineInputBorder(borderRadius: AppRadii.card),
+                    hintText: _isWealth ? '例如：某银行定存' : '例如：午餐、地铁、工资',
+                    border: const OutlineInputBorder(borderRadius: AppRadii.card),
                   ),
                   validator: (value) {
                     if ((value ?? '').trim().isEmpty) {
@@ -184,6 +240,46 @@ class _AddRecordPageState extends State<AddRecordPage> {
                   enabled: !_saving,
                   onSelected: (name) => setState(() => _category = name),
                 ),
+                if (_isWealth) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _annualRateController,
+                    enabled: !_saving,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '年利率（可选）',
+                      suffixText: '%',
+                      border: OutlineInputBorder(borderRadius: AppRadii.card),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : _pickMaturityDate,
+                    icon: const Icon(Icons.event_outlined),
+                    label: Text(
+                      _maturityDate == null
+                          ? '选择到期日（可选）'
+                          : '到期 ${_maturityDate!.year}/${_maturityDate!.month}/${_maturityDate!.day}',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      alignment: Alignment.centerLeft,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadii.card,
+                      ),
+                    ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('到期时在理财管理页提醒'),
+                    value: _remindOnMaturity,
+                    onChanged: _saving
+                        ? null
+                        : (value) => setState(() => _remindOnMaturity = value),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 if (_showMethod) ...[
                   ReadOnlyMethodField(value: widget.editingRecord!.source),
@@ -233,6 +329,15 @@ class _AddRecordPageState extends State<AddRecordPage> {
     );
   }
 
+  String _resolveCategory(LedgerRecordType type, String? preferred) {
+    final categories = _categoriesFor(type);
+    if (preferred != null &&
+        categories.map((item) => item.name).contains(preferred)) {
+      return preferred;
+    }
+    return categories.first.name;
+  }
+
   Future<void> _pickDate() async {
     final picked = await pickRecordDate(
       context,
@@ -252,6 +357,25 @@ class _AddRecordPageState extends State<AddRecordPage> {
     }
   }
 
+  Future<void> _pickMaturityDate() async {
+    final picked = await pickRecordDate(
+      context,
+      initialDate: _maturityDate ?? _selectedDate,
+    );
+    if (picked != null) {
+      setState(() => _maturityDate = picked);
+    }
+  }
+
+  WealthMeta _buildWealthMeta() {
+    final rate = double.tryParse(_annualRateController.text.trim());
+    return WealthMeta(
+      annualRate: rate != null && rate > 0 ? rate : null,
+      maturityDate: _maturityDate,
+      remindOnMaturity: _remindOnMaturity,
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -259,6 +383,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
 
     setState(() => _saving = true);
     final amount = double.parse(_amountController.text.trim());
+    final wealthMeta = _isWealth ? _buildWealthMeta() : const WealthMeta();
     final editingRecord = widget.editingRecord;
     if (editingRecord == null) {
       await ledgerStore.addRecord(
@@ -268,6 +393,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
         category: _category,
         createdAt: _selectedDate,
         notes: _notesController.text,
+        wealthMeta: wealthMeta,
       );
     } else {
       await ledgerStore.updateRecord(
@@ -279,6 +405,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
         createdAt: _selectedDate,
         notes: _notesController.text,
         source: editingRecord.source,
+        wealthMeta: wealthMeta,
       );
     }
 

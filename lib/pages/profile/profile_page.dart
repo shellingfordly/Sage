@@ -6,6 +6,7 @@ import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/ledger_formatters.dart';
 import 'budget_management_page.dart';
+import 'wealth_management_page.dart';
 import 'category/category_management_page.dart';
 import 'data_backup/data_backup_page.dart';
 import 'ledger/ledger_management_page.dart';
@@ -215,11 +216,24 @@ class _SettingsPanel extends StatelessWidget {
           _SettingTile(
             icon: Icons.savings_outlined,
             title: '预算管理',
-            subtitle: '设置每月可用额度',
+            subtitle: '设置每月支出消费额度',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (context) => const BudgetManagementPage(),
+                ),
+              );
+            },
+          ),
+          const _PanelDivider(),
+          _SettingTile(
+            icon: Icons.account_balance_outlined,
+            title: '理财管理',
+            subtitle: '查看理财记录与目标',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const WealthManagementPage(),
                 ),
               );
             },
