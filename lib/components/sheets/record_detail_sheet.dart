@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../components/dialogs/confirm_dialog.dart';
 import '../../data/ledger_store.dart';
 import '../../models/ledger_record.dart';
 import '../../pages/add_record_page.dart';
@@ -46,8 +47,11 @@ class _RecordDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final amountColor =
-        record.isIncome ? colors.primary : colors.textPrimary;
+    final amountColor = switch (record.type) {
+      LedgerRecordType.income => colors.primary,
+      LedgerRecordType.wealth => colors.primary,
+      LedgerRecordType.expense => colors.textPrimary,
+    };
 
     return SafeArea(
       child: Padding(
@@ -79,7 +83,7 @@ class _RecordDetailSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        record.isIncome ? '收入' : '支出',
+                        ledgerRecordTypeLabel(record.type),
                         style: AppTextStyles.bodyMuted(context).copyWith(
                           color: amountColor,
                           fontWeight: FontWeight.w600,
@@ -110,6 +114,29 @@ class _RecordDetailSheet extends StatelessWidget {
               const SizedBox(height: 10),
               _DetailRow(label: '备注', value: record.notes),
             ],
+            if (record.isWealth) ...[
+              if (record.wealthMeta.hasRate) ...[
+                const SizedBox(height: 10),
+                _DetailRow(
+                  label: '年利率',
+                  value: '${record.wealthMeta.annualRate!.toStringAsFixed(2)}%',
+                ),
+              ],
+              if (record.wealthMeta.hasMaturity) ...[
+                const SizedBox(height: 10),
+                _DetailRow(
+                  label: '到期日',
+                  value:
+                      '${record.wealthMeta.maturityDate!.year}/'
+                      '${record.wealthMeta.maturityDate!.month}/'
+                      '${record.wealthMeta.maturityDate!.day}',
+                ),
+              ],
+              if (record.wealthMeta.remindOnMaturity) ...[
+                const SizedBox(height: 10),
+                const _DetailRow(label: '提醒', value: '到期时在理财管理页展示'),
+              ],
+            ],
             const SizedBox(height: 24),
             Row(
               children: [
@@ -125,10 +152,10 @@ class _RecordDetailSheet extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.check),
-                    label: const Text('关闭'),
+                  child: OutlinedButton.icon(
+                    onPressed: () => _confirmDelete(context),
+                    icon: Icon(Icons.delete_outline, color: colors.danger),
+                    label: Text('删除', style: TextStyle(color: colors.danger)),
                   ),
                 ),
               ],
@@ -137,6 +164,22 @@ class _RecordDetailSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final shouldDelete = await showConfirmDialog(
+      context,
+      title: '删除记录',
+      content: '确定删除「${record.title}」吗？',
+      confirmText: '删除',
+    );
+    if (shouldDelete != true || !context.mounted) {
+      return;
+    }
+    await ledgerStore.deleteRecord(record.id);
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
   }
 }
 
