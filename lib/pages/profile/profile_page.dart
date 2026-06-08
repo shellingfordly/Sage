@@ -11,6 +11,7 @@ import 'category/category_management_page.dart';
 import 'data_backup/data_backup_page.dart';
 import 'ledger/ledger_management_page.dart';
 import '../../components/dialogs/ledger_name_dialog.dart';
+import 'about_app_page.dart';
 import 'settings_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -306,10 +307,17 @@ class _AppPanel extends StatelessWidget {
             },
           ),
           const _PanelDivider(),
-          const _SettingTile(
+          _SettingTile(
             icon: Icons.info_outline,
             title: '关于应用',
-            subtitle: 'Ledger App 0.1.0',
+            subtitle: '智账 Sage 0.1.0',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const AboutAppPage(),
+                ),
+              );
+            },
           ),
         ],
       ),
