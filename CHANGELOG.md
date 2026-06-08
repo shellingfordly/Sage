@@ -1,129 +1,135 @@
-# Changelog
+# 更新日志
 
-> **English** · [简体中文](CHANGELOG.zh-CN.md)
+> **简体中文** · [English](CHANGELOG.en.md)
 
-All notable changes to Ledger App are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+本文件记录 **智账（Sage）** 的功能与重要变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
 ---
 
 ## [Unreleased]
 
-### Added
+### 新增
 
-- Shared form bottom sheet `AppFormSheet` for consistent ledger name and category editing
-- Refactored ledger name and category editor dialogs to use the form sheet
-- **Statistics** tab: time-range filters, folder-style grouped record list, sort options, and summary toolbar
-- Rule-based **Analysis** engine: consumption-only filtering (excludes transfers, fixed deposits, repayments)
-- Period comparison, headline conclusions, category shift breakdown, and peak-volatility month detection
-- Configurable analysis scopes for single month, multi-month, and custom ranges
-- Drill-down from Analysis panels to the Statistics tab with pre-filled filters (`AnalysisDrillDown`)
-- **Wealth** record type: separate from income/expense cashflow; dedicated categories, metadata (rate, maturity, in-app reminder), and Wealth Management page
-- Wealth principal & net-deposit analytics, maturity list, yearly trend chart with amounts, and per-ledger monthly/yearly deposit targets
-- Statistics tab **Wealth** filter; home and default statistics exclude wealth from balance
-- Record detail sheet delete action; bill import review supports wealth type editing
-- Bill import UI redaction for sensitive fields in source lines (`redactBankBillSourceLine`)
+- **关于应用**页面：应用简介、开发者信息与版本号
+- Sage 品牌标识（`SageLogo`）及各平台启动图标（Android、iOS、macOS、Windows、Web）
+- 英文说明迁至 `README.en.md`，默认文档为中文 `README.md`
+- 英文更新日志迁至 `CHANGELOG.en.md`，默认文档为中文 `CHANGELOG.md`
+- 通用表单底部面板 `AppFormSheet`，统一账本名称与分类编辑交互
+- 重构账本名称、分类编辑弹窗以复用表单面板组件
+- **统计** Tab：时间范围筛选、文件夹式分组列表、排序与汇总工具栏
+- 规则驱动的 **分析** 引擎：消费类筛选（排除转账、定存、还款等非消费项）
+- 时段对比、核心结论、分类变化、波动最大月份等诊断能力
+- 支持单月、跨月与自定义区间的分析范围模型
+- 分析页各面板可下钻到统计 Tab，并携带预设筛选（`AnalysisDrillDown`）
+- **理财**记录类型：与收支结余分离；独立分类与元数据（利率、到期日、App 内到期提醒）；理财管理页
+- 理财本金与净存入统计、到期列表、带数值的年度趋势图；账本级通用月/年存入目标
+- 统计 Tab 增加「理财」筛选；首页与默认统计不含理财结余
+- 记录详情面板支持删除；账单导入审核支持理财类型编辑
+- 账单导入审核页对原始行敏感字段脱敏展示（`redactBankBillSourceLine`）
 
-### Changed
+### 变更
 
-- Bottom navigation labels: bill filtering tab renamed to **Statistics**; standalone analysis route titled **Analysis**
-- Analysis page rebuilt as a rule-driven layout (conclusions → comparison → categories → volatility → overview → notable items)
-- Cross-month scopes show read-only expense reference instead of editable monthly budget apply
-- Home spending alerts simplified (budget warning + anomaly count; no unread badge ack flow)
-- Legacy income/expense category「理财」 migrated to `wealth` type on load
-- Wealth targets simplified to one monthly and one yearly goal per ledger (legacy per-period values migrated on load)
-- Wealth management uses current-month/year stats; records open detail sheet on tap; wealth type locked when editing
-- Category management type switcher uses compact labels; record detail sheet drops redundant close button
-- Profile wealth entry subtitle shortened; README quick-start path corrected to `Sage`
+- 各平台应用显示名称统一为 **Sage** / **智账**
+- 文档与更新日志中的产品命名与 **智账（Sage）** 品牌保持一致
+- 底部导航命名：账单筛选 Tab 改为 **统计**；独立分析路由标题改为 **分析**
+- 分析页 UI 重构为规则结论驱动（结论 → 对比 → 分类 → 波动 → 概览 → 值得关注）
+- 跨月范围下预算建议改为只读「支出参考」，不再提供单月预算一键应用
+- 首页消费提醒简化为预算预警与异常条数（移除未接入的已读 ack 与角标逻辑）
+- 旧收入/支出分类「理财」在加载时自动迁移为 `wealth` 类型
+- 理财目标改为账本级通用月/年目标（旧按月份/年份存储的数据加载时自动迁移）
+- 理财管理按当前月/年统计；记录点击查看详情；编辑理财时锁定类型不可改为收支
+- 分类管理类型切换器改为紧凑标签；记录详情面板移除冗余「关闭」按钮
+- 「我的」理财入口副标题缩短；README 快速开始路径修正为 `Sage`
 
-### Removed
+### 移除
 
-- Q&A explanation bottom sheet and preset question panel
-- Alert acknowledgement store and batch budget-suggestion apply service
-- Unused helpers (`iconForCategory`, `BillImportSource.wechat`)
-- Record detail sheet close button (dismiss via drag handle)
+- 问答说明底部面板与预设问题入口
+- 提醒已读存储（`ai_alert_ack_store`）与预算建议批量应用服务
+- 未使用的工具代码（`iconForCategory`、`BillImportSource.wechat`）
+- 记录详情面板「关闭」按钮（可通过拖拽条关闭）
 
-### Fixed
+### 修复
 
-- `TimeRangePanel` bottom corner radius and built-in border styling
-- Category type segmented control text overflow on narrow screens
-- Skipped bank-import rows no longer use full raw line as default record title
+- `TimeRangePanel` 底部圆角与内置边框样式
+- 分类管理类型切换器在窄屏下文字换行溢出
+- 账单导入跳过行不再将整行原始文本作为默认记录标题
 
 ---
 
 ## [0.1.0] - 2026-06-03
 
-First feature-complete release (`pubspec.yaml`: `0.1.0+1`).
+首个可发布的综合功能版本（`pubspec.yaml`: `0.1.0+1`）。
 
-### Added
+### 新增
 
-#### Ledgers & records
+#### 记账与账本
 
-- Multiple ledgers: create, switch, rename, management page
-- Income/expense records: add, edit, delete (swipe actions on home)
-- Ledger merge: source/target selection, filter by month or custom range, step-by-step review
-- Category management: custom name, icon, color
-- Drag-to-reorder categories
+- 多账本创建、切换、重命名与管理页
+- 收支记录新增、编辑、删除（首页滑动操作）
+- 账本合并：选择源/目标账本，按月份或自定义区间筛选，分步审核后合并
+- 收入/支出分类管理，自定义名称、图标、颜色
+- 分类顺序拖拽调整
 
-#### Budgets
+#### 预算
 
-- Ledger-wide and per-category budgets
-- Budget management UI with overspend-related hints
+- 账本总预算与分类预算设置
+- 预算管理界面与超支相关提示
 
-#### Analytics
+#### 统计与分析
 
-- Charts tab: expense trends, category breakdown, liquid disk visualization
-- Year/month period selection with dynamic summaries
-- Analysis page: filters and record list
-- Shared time range and export range components
+- 统计图表页：支出趋势、分类占比、液体圆盘可视化
+- 年/月统计周期选择与动态汇总
+- 账单分析页：筛选条件与记录列表
+- 时间范围选择与导出区间通用组件
 
-#### Import & export
+#### 导入导出
 
-- Data backup: Excel export/import with cross-platform local file I/O
-- PDF bank statement import: parse, category suggestions, review page batch posting
-- Improved export success feedback and preview flow
+- 数据备份：Excel 导出/导入，跨平台本地文件读写
+- PDF 银行账单导入：解析、分类建议、审核页批量入账
+- 导出成功提示与预览流程优化
 
-#### Spending analysis
+#### 消费分析
 
-- Analysis module: spending overview, budget risk, anomaly detection
-- Home spending alerts and dedicated analysis page
-- Month navigation, budget warning confirmation, batch suggestion apply
-- Q&A explanation bottom sheet
+- 分析模块：消费概览、预算风险、异常账单识别
+- 首页消费提醒与独立分析页
+- 月份导航、预算警告确认、建议批量应用
+- 问答说明底部面板
 
-#### Theme & settings
+#### 主题与设置
 
-- Multiple color palette families
-- Appearance: system / light / dark
-- Global font scale: small, standard, large, extra large
+- 多套主题配色切换
+- 外观模式：跟随系统 / 浅色 / 深色
+- 全局字号缩放：小、标准、大、特大四档
 
-#### Engineering & UI
+#### 工程与 UI 基础
 
-- Shared dialogs, pickers, record detail and category picker sheets
-- `lib/` restructure: unified paths for analysis, components, ledger, services
-- App init: parallel load of `ledgerStore` and `themeController`
+- 通用对话框、选择器、记录详情/分类选择底部面板
+- `lib` 目录重组：分析、组件、账本、服务模块路径统一
+- 应用初始化：并行加载 `ledgerStore` 与 `themeController`
 
-### Changed
+### 变更
 
-- Data backup split into dedicated import/export services
-- Statistics moved to standalone charts module (`pages/charts/`)
-- Trend bar styling and category disk shadow logic refined
+- 数据备份模块拆分，导入导出逻辑独立为服务类
+- 统计页拆分为独立图表模块（`pages/charts/`）
+- 趋势条样式与分类圆盘阴影逻辑优化
 
-### Fixed
+### 修复
 
-- (This release focused on features; see individual commits for bug fixes.)
-
----
-
-## [0.0.1] - Initial
-
-### Added
-
-- Flutter project bootstrap (`chore: init`)
-- Basic home page with month switching
+- （本版本以功能建设为主，具体问题修复见对应 commit）
 
 ---
 
-## Versioning
+## [0.0.1] - 初始版本
 
-- Version numbers follow `pubspec.yaml`: `MAJOR.MINOR.PATCH+BUILD`.
-- **Unreleased**: changes on the main branch not yet tagged.
-- Change types: **Added** · **Changed** · **Fixed** · **Removed** · **Deprecated**
+### 新增
+
+- Flutter 项目初始化（`chore: init`）
+- 基础首页与按月切换能力
+
+---
+
+## 版本说明
+
+- 版本号遵循 `pubspec.yaml` 中的 `version: MAJOR.MINOR.PATCH+BUILD`。
+- **Unreleased**：已合并到主分支但尚未打 tag 的变更。
+- 类型标签：**新增** · **变更** · **修复** · **移除** · **废弃**
