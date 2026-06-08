@@ -1,5 +1,5 @@
 name: ledger_app
-description: "A new Flutter project."
+description: "Sage (智账) — local-first personal ledger app built with Flutter."
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -24,7 +24,28 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
   flutter_lints: ^6.0.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: docs/assets/app_icon/icon.png
+  adaptive_icon_background: '#F7F5F0'
+  adaptive_icon_foreground: docs/assets/app_icon/icon_foreground.png
+  web:
+    generate: true
+    image_path: docs/assets/app_icon/icon.png
+    background_color: '#F7F5F0'
+    theme_color: '#2F8F83'
+  windows:
+    generate: true
+    image_path: docs/assets/app_icon/icon.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: docs/assets/app_icon/icon.png
 
 flutter:
   uses-material-design: true
