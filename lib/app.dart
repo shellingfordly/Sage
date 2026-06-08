@@ -29,7 +29,7 @@ class LedgerApp extends StatelessWidget {
         );
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Ledger App',
+          title: '智账',
           theme: themeData,
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
