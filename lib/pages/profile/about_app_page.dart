@@ -5,7 +5,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 
-const _appVersion = '0.1.0';
+const _appVersion = '1.0.0';
 const _appAuthor = 'shellingfordly';
 const _appContact = 'shellingfordly@qq.com';
 const _appRepository = 'github.com/shellingfordly/Sage';

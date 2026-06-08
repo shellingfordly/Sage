@@ -8,6 +8,12 @@ All notable changes to **Sage**（智账）are documented here. Format based on 
 
 ## [Unreleased]
 
+---
+
+## [1.0.0] - 2026-06-08
+
+First official release (`pubspec.yaml`: `1.0.0+1`).
+
 ### Added
 
 - **About** page with app description, developer info, and version
