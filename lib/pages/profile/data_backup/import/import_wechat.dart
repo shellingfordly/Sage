@@ -62,7 +62,7 @@ class ImportWechatService {
 
       final remainingSkipped = parsed.skippedRows.length;
       final skippedHint = remainingSkipped > 0
-          ? '；另有 $remainingSkipped 行未导入（退款/已退款等）'
+          ? '；另有 $remainingSkipped 行未导入（格式不符等）'
           : '';
       return ImportWechatSuccess('导入成功，新增 $added 条记录$skippedHint');
     } catch (error) {

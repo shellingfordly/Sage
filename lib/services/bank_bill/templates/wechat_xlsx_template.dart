@@ -65,7 +65,7 @@ class WeChatXlsxBillTemplate {
       );
     }
 
-    final records = <BankBillParsedRecord>[];
+    final pendingRows = <_WeChatRowContext>[];
     final skippedRows = <BankBillSkippedRow>[];
 
     for (var i = headerIndex + 1; i < rows.length; i++) {
@@ -98,8 +98,17 @@ class WeChatXlsxBillTemplate {
         continue;
       }
 
-      records.add(_buildRecord(raw, rowIndex: i));
+      pendingRows.add(
+        _WeChatRowContext(
+          columns: columns,
+          sourceLine: sourceLine,
+          rowIndex: i,
+          raw: raw,
+        ),
+      );
     }
+
+    final records = _mergeRefundPairs(pendingRows);
 
     if (records.isEmpty) {
       return BankBillParseResult(
@@ -130,16 +139,8 @@ class WeChatXlsxBillTemplate {
   }
 
   String? _skipReason(List<String> columns) {
-    final type = columns[_columnType].trim();
     final direction = columns[_columnDirection].trim();
-    final status = columns[_columnStatus].trim();
 
-    if (type.endsWith('-退款')) {
-      return '退款记录（不计入收支）';
-    }
-    if (status.contains('已退款') || status.contains('已全额退款')) {
-      return status.contains('已全额退款') ? '已全额退款' : '已退款';
-    }
     if (direction != '支出' && direction != '收入') {
       return '未知收支类型：$direction';
     }
@@ -174,6 +175,145 @@ class WeChatXlsxBillTemplate {
       sourceLine: sourceLine,
       importSource: paymentMethod,
     );
+  }
+
+  List<BankBillParsedRecord> _mergeRefundPairs(List<_WeChatRowContext> rows) {
+    final consumed = <int>{};
+    final mergedByExpenseIndex = <int, BankBillParsedRecord>{};
+
+    for (var refundIndex = 0; refundIndex < rows.length; refundIndex++) {
+      final refundRow = rows[refundIndex];
+      if (!refundRow.isRefundIncome || consumed.contains(refundIndex)) {
+        continue;
+      }
+
+      final merchant = refundRow.refundMerchantName;
+      if (merchant == null || merchant.isEmpty) {
+        continue;
+      }
+
+      final refundAmount = refundRow.absoluteAmount;
+      var expenseIndex = -1;
+      for (var i = 0; i < rows.length; i++) {
+        if (i == refundIndex || consumed.contains(i)) {
+          continue;
+        }
+        final expenseRow = rows[i];
+        if (!expenseRow.isRefundedExpense) {
+          continue;
+        }
+        if (expenseRow.counterparty != merchant) {
+          continue;
+        }
+
+        final statusRefund = _parseRefundAmountFromStatus(
+          expenseRow.status,
+          expenseRow.absoluteAmount,
+        );
+        if (statusRefund == null) {
+          continue;
+        }
+        if ((statusRefund - refundAmount).abs() > 0.001) {
+          continue;
+        }
+
+        expenseIndex = i;
+        break;
+      }
+
+      if (expenseIndex < 0) {
+        continue;
+      }
+
+      consumed
+        ..add(refundIndex)
+        ..add(expenseIndex);
+      mergedByExpenseIndex[expenseIndex] = _buildMergedRecord(
+        expense: rows[expenseIndex],
+        paidAmount: rows[expenseIndex].absoluteAmount,
+        refundAmount: refundAmount,
+      );
+    }
+
+    final records = <BankBillParsedRecord>[];
+    for (var i = 0; i < rows.length; i++) {
+      if (consumed.contains(i)) {
+        final merged = mergedByExpenseIndex[i];
+        if (merged != null) {
+          records.add(merged);
+        }
+        continue;
+      }
+      records.add(_buildRecord(rows[i].raw, rowIndex: rows[i].rowIndex));
+    }
+    return records;
+  }
+
+  BankBillParsedRecord _buildMergedRecord({
+    required _WeChatRowContext expense,
+    required double paidAmount,
+    required double refundAmount,
+  }) {
+    final netAmount = paidAmount - refundAmount;
+    final wechatType = expense.type;
+    final mappedCategory = _mapCategory(wechatType, false);
+    final recordSource = expense.raw.importSource?.trim() ?? '';
+    final paidText = _formatWeChatAmount(paidAmount);
+    final refundText = _formatWeChatAmount(refundAmount);
+    final baseNotes = wechatType.isEmpty ? '' : '交易类型：$wechatType';
+    final refundNotes = '付款¥$paidText，退款¥$refundText';
+    final notes = baseNotes.isEmpty ? refundNotes : '$baseNotes；$refundNotes';
+    final displayAmount = netAmount > 0 ? netAmount : 0.0;
+
+    return BankBillParsedRecord(
+      record: LedgerRecord(
+        id: 'wechat-import-${expense.rowIndex}',
+        title: _recordTitle(expense.raw),
+        amount: displayAmount,
+        type: LedgerRecordType.expense,
+        category: mappedCategory,
+        createdAt: expense.raw.date,
+        notes: notes,
+        source: recordSource.isNotEmpty
+            ? recordSource
+            : BillImportSource.unknown,
+      ),
+      categoryReason: netAmount > 0
+          ? '微信退款订单合并：实付 ¥${_formatWeChatAmount(netAmount)}'
+          : '微信退款订单合并：全额退款',
+      raw: BankBillRawRow(
+        date: expense.raw.date,
+        currency: expense.raw.currency,
+        amount: displayAmount > 0 ? -displayAmount : 0,
+        balance: expense.raw.balance,
+        transactionSummary: expense.raw.transactionSummary,
+        sourceLine: expense.sourceLine,
+        importSource: expense.raw.importSource,
+      ),
+    );
+  }
+
+  double? _parseRefundAmountFromStatus(String status, double expenseAmount) {
+    if (status.contains('已全额退款')) {
+      return expenseAmount;
+    }
+
+    final match = RegExp(r'已退款[(（]?¥?([\d,.]+)[)）]?').firstMatch(status);
+    if (match == null) {
+      return null;
+    }
+    return _parseAmount(match.group(1)!);
+  }
+
+  String _formatWeChatAmount(double amount) {
+    final fixed = amount.toStringAsFixed(2);
+    if (fixed.endsWith('00')) {
+      return amount.toStringAsFixed(0);
+    }
+    if (fixed.endsWith('0')) {
+      return amount.toStringAsFixed(1);
+    }
+    return fixed;
   }
 
   BankBillParsedRecord _buildRecord(BankBillRawRow raw, {required int rowIndex}) {
@@ -242,5 +382,41 @@ class WeChatXlsxBillTemplate {
   double? _parseAmount(String raw) {
     final normalized = raw.replaceAll(',', '').trim();
     return double.tryParse(normalized);
+  }
+}
+
+class _WeChatRowContext {
+  const _WeChatRowContext({
+    required this.columns,
+    required this.sourceLine,
+    required this.rowIndex,
+    required this.raw,
+  });
+
+  static const _refundSuffix = '-退款';
+
+  final List<String> columns;
+  final String sourceLine;
+  final int rowIndex;
+  final BankBillRawRow raw;
+
+  String get type => columns[1].trim();
+  String get counterparty => columns[2].trim();
+  String get direction => columns[4].trim();
+  String get status => columns[7].trim();
+  double get absoluteAmount => raw.amount.abs();
+
+  bool get isRefundIncome =>
+      type.endsWith(_refundSuffix) && direction == '收入';
+
+  bool get isRefundedExpense =>
+      direction == '支出' &&
+      (status.contains('已全额退款') || status.contains('已退款'));
+
+  String? get refundMerchantName {
+    if (!isRefundIncome || !type.endsWith(_refundSuffix)) {
+      return null;
+    }
+    return type.substring(0, type.length - _refundSuffix.length);
   }
 }

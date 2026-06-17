@@ -98,12 +98,12 @@ void main() {
       expect(template.canParseRows([['date', 'amount']]), isFalse);
     });
 
-    test('parseRows imports expense/income and skips refund rows', () {
+    test('parseRows merges partial refund pairs into one expense record', () {
       final result = template.parseRows(_sampleRows);
 
       expect(result.templateName, '微信支付账单明细');
-      expect(result.records.length, 3);
-      expect(result.skippedRows.length, 2);
+      expect(result.records.length, 4);
+      expect(result.skippedRows, isEmpty);
 
       final expense = result.records[0].record;
       expect(expense.title, '商品A');
@@ -114,21 +114,113 @@ void main() {
       expect(expense.source, '方式A');
       expect(expense.notes, contains('商户消费'));
 
-      final reward = result.records[1].record;
+      final mergedRefund = result.records[1].record;
+      expect(mergedRefund.title, '订单B');
+      expect(mergedRefund.amount, 25);
+      expect(mergedRefund.type, LedgerRecordType.expense);
+      expect(mergedRefund.category, '购物');
+      expect(mergedRefund.notes, contains('付款¥30，退款¥5'));
+      expect(result.records[1].categoryReason, contains('实付 ¥25'));
+
+      final reward = result.records[2].record;
       expect(reward.title, '奖励来源A');
       expect(reward.amount, 1);
       expect(reward.type, LedgerRecordType.income);
       expect(reward.source, '未知');
 
-      final transfer = result.records[2].record;
+      final transfer = result.records[3].record;
       expect(transfer.title, '示例转账');
       expect(transfer.amount, 200);
       expect(transfer.type, LedgerRecordType.expense);
       expect(transfer.category, '其他');
+    });
 
-      final reasons = result.skippedRows.map((row) => row.reason).toSet();
-      expect(reasons, contains('退款记录（不计入收支）'));
-      expect(reasons, contains('已退款'));
+    test('parseRows merges refund pair with decimal amounts', () {
+      final rows = [
+        ['微信支付账单明细'],
+        [
+          '交易时间',
+          '交易类型',
+          '交易对方',
+          '商品',
+          '收/支',
+          '金额(元)',
+          '支付方式',
+          '当前状态',
+        ],
+        [
+          '2026-06-05 19:10:40',
+          '商户消费',
+          '充电桩五金店',
+          '充电桩五金店',
+          '支出',
+          '1.00',
+          '零钱',
+          '已退款(¥0.09)',
+        ],
+        [
+          '2026-06-06 01:16:11',
+          '充电桩五金店-退款',
+          '充电桩五金店',
+          '充电桩五金店',
+          '收入',
+          '0.09',
+          '零钱',
+          '已退款¥0.09',
+        ],
+      ];
+
+      final result = template.parseRows(rows);
+      expect(result.records.length, 1);
+      expect(result.records.first.record.amount, closeTo(0.91, 0.001));
+      expect(result.records.first.record.notes, contains('付款¥1，退款¥0.09'));
+      expect(result.records.first.record.type, LedgerRecordType.expense);
+    });
+
+    test('parseRows merges full refund pair with zero net expense', () {
+      final rows = [
+        ['微信支付账单明细'],
+        [
+          '交易时间',
+          '交易类型',
+          '交易对方',
+          '商品',
+          '收/支',
+          '金额(元)',
+          '支付方式',
+          '当前状态',
+        ],
+        [
+          '2026-01-07 09:19:27',
+          '蓝小鲜新能源-退款',
+          '蓝小鲜新能源',
+          '蓝小鲜新能源',
+          '收入',
+          '50.00',
+          '亲属卡',
+          '已全额退款',
+        ],
+        [
+          '2026-01-07 09:18:29',
+          '商户消费',
+          '蓝小鲜新能源',
+          '充电订单',
+          '支出',
+          '50.00',
+          '亲属卡(over)',
+          '已全额退款',
+        ],
+      ];
+
+      final result = template.parseRows(rows);
+      expect(result.records.length, 1);
+
+      final merged = result.records.first.record;
+      expect(merged.amount, 0);
+      expect(merged.type, LedgerRecordType.expense);
+      expect(merged.title, '充电订单');
+      expect(merged.notes, contains('付款¥50，退款¥50'));
+      expect(result.records.first.categoryReason, contains('全额退款'));
     });
 
     test('parseRows uses counterparty when product is empty', () {
