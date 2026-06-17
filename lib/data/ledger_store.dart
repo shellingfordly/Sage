@@ -385,13 +385,13 @@ class LedgerStore extends ChangeNotifier {
   }
 
   Future<bool> deleteLedger(String ledgerId) async {
-    if (_ledgers.length <= 1 || ledgerId == defaultLedgerId) {
-      return false;
-    }
     final index = _ledgers.indexWhere((ledger) => ledger.id == ledgerId);
     if (index == -1) {
       return false;
     }
+    final deletingDefault = ledgerId == defaultLedgerId;
+    final wasCurrent = _currentLedgerId == ledgerId;
+
     _ledgers.removeAt(index);
     _recordsByLedger.remove(ledgerId);
     _budgetsByLedger.remove(ledgerId);
@@ -399,11 +399,37 @@ class LedgerStore extends ChangeNotifier {
     _wealthMonthlyTargetByLedger.remove(ledgerId);
     _wealthYearlyTargetByLedger.remove(ledgerId);
     _categoriesByLedger.remove(ledgerId);
-    if (_currentLedgerId == ledgerId) {
+
+    if (deletingDefault) {
+      _insertFreshDefaultLedger();
+      if (wasCurrent || _ledgers.every((ledger) => ledger.id != _currentLedgerId)) {
+        _currentLedgerId = defaultLedgerId;
+      }
+    } else if (wasCurrent) {
       _currentLedgerId = _ledgers.first.id;
     }
+
     await _save();
     return true;
+  }
+
+  void _insertFreshDefaultLedger({String name = '默认账本'}) {
+    _ledgers.insert(
+      0,
+      LedgerBook(
+        id: defaultLedgerId,
+        name: name,
+        createdAt: DateTime.now(),
+      ),
+    );
+    _recordsByLedger[defaultLedgerId] = [];
+    _budgetsByLedger[defaultLedgerId] = {};
+    _categoryBudgetsByLedger[defaultLedgerId] = {};
+    _wealthMonthlyTargetByLedger.remove(defaultLedgerId);
+    _wealthYearlyTargetByLedger.remove(defaultLedgerId);
+    _categoriesByLedger[defaultLedgerId] = List<LedgerCategory>.from(
+      defaultCategories(),
+    );
   }
 
   List<LedgerRecord> recordsForLedger(String ledgerId) {

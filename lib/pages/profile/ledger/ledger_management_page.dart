@@ -115,12 +115,11 @@ class _LedgerSlidableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final isDefault = ledgerStore.isDefaultLedger(ledger.id);
     return Slidable(
       key: ValueKey('ledger-${ledger.id}'),
       endActionPane: ActionPane(
         motion: const DrawerMotion(),
-        extentRatio: isDefault ? 0.24 : 0.48,
+        extentRatio: 0.48,
         children: [
           SlidableAction(
             onPressed: (_) => _renameLedger(context),
@@ -129,14 +128,13 @@ class _LedgerSlidableRow extends StatelessWidget {
             icon: Icons.edit_outlined,
             label: '编辑',
           ),
-          if (!isDefault)
-            SlidableAction(
-              onPressed: (_) => _deleteLedger(context),
-              backgroundColor: colors.danger,
-              foregroundColor: colors.onStrong,
-              icon: Icons.delete_outline,
-              label: '删除',
-            ),
+          SlidableAction(
+            onPressed: (_) => _deleteLedger(context),
+            backgroundColor: colors.danger,
+            foregroundColor: colors.onStrong,
+            icon: Icons.delete_outline,
+            label: '删除',
+          ),
         ],
       ),
       child: _LedgerRowContent(
@@ -159,21 +157,19 @@ class _LedgerSlidableRow extends StatelessWidget {
   }
 
   Future<void> _deleteLedger(BuildContext context) async {
+    final isDefault = ledgerStore.isDefaultLedger(ledger.id);
     final shouldDelete = await showConfirmDialog(
       context,
       title: '删除账本',
-      content: '确定删除「${ledger.name}」吗？账本内记录会一并删除。',
+      content: isDefault
+          ? '确定删除「${ledger.name}」吗？账本内记录会一并删除，并自动新建一个空白默认账本。'
+          : '确定删除「${ledger.name}」吗？账本内记录会一并删除。',
       confirmText: '删除',
     );
     if (shouldDelete != true) {
       return;
     }
-    final deleted = await ledgerStore.deleteLedger(ledger.id);
-    if (!deleted && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('至少需要保留一个账本')),
-      );
-    }
+    await ledgerStore.deleteLedger(ledger.id);
   }
 }
 
