@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../components/fields/read_only_method_field.dart';
+import '../../../components/sheets/record_detail_sheet.dart';
 import '../../../data/ledger_store.dart';
 import '../../../models/ledger_category.dart';
 import '../../../models/ledger_record.dart';
@@ -14,6 +15,8 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_styles.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../utils/ledger_formatters.dart';
+
+enum _ReviewFilter { parsed, pending }
 
 /// PDF 账单导入审核页：展示解析与跳过结果，支持编辑与删除。
 class BankBillImportReviewPage extends StatefulWidget {
@@ -37,45 +40,14 @@ class BankBillImportReviewPage extends StatefulWidget {
 class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
   late List<BankBillParsedRecord> _items;
   late List<BankBillSkippedRow> _skipped;
-  final _searchController = TextEditingController();
-  String _query = '';
+  late _ReviewFilter _filter;
 
   @override
   void initState() {
     super.initState();
     _items = List<BankBillParsedRecord>.from(widget.records);
     _skipped = List<BankBillSkippedRow>.from(widget.skippedRows);
-    _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  bool _matchesQuery(String haystack) {
-    if (_query.isEmpty) {
-      return true;
-    }
-    return haystack.toLowerCase().contains(_query);
-  }
-
-  List<BankBillParsedRecord> get _visibleItems {
-    return _items.where((item) {
-      final record = item.record;
-      final haystack =
-          '${record.title} ${record.category} ${record.notes} ${record.source} ${item.categoryReason}';
-      return _matchesQuery(haystack);
-    }).toList();
-  }
-
-  List<BankBillSkippedRow> get _visibleSkipped {
-    return _skipped.where((row) {
-      return _matchesQuery('${row.sourceLine} ${row.reason}');
-    }).toList();
+    _filter = _items.isNotEmpty ? _ReviewFilter.parsed : _ReviewFilter.pending;
   }
 
   void _removeItem(BankBillParsedRecord item) {
@@ -175,12 +147,21 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
     return trimmed;
   }
 
+  String _emptyMessage() {
+    if (_items.isEmpty && _skipped.isEmpty) {
+      return '没有可导入的记录';
+    }
+    return switch (_filter) {
+      _ReviewFilter.parsed => '暂无解析成功的记录',
+      _ReviewFilter.pending => '暂无待处理记录',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final visible = _visibleItems;
-    final visibleSkipped = _visibleSkipped;
-    final hasVisibleContent = visible.isNotEmpty || visibleSkipped.isNotEmpty;
+    final showParsed = _filter == _ReviewFilter.parsed;
+    final listEmpty = showParsed ? _items.isEmpty : _skipped.isEmpty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('账单导入审核')),
@@ -196,71 +177,67 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                '模板：${widget.templateName}  ·  待导入 ${_items.length} 条'
-                '${_skipped.isNotEmpty ? '  ·  需处理 ${_skipped.length} 条' : ''}',
+                '模板：${widget.templateName}',
                 style: AppTextStyles.bodyMuted(context),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: '搜索名称、分类、备注或原始行',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: AppRadii.card),
-                  isDense: true,
-                ),
+              SegmentedButton<_ReviewFilter>(
+                segments: [
+                  ButtonSegment(
+                    value: _ReviewFilter.parsed,
+                    label: Text('解析成功 (${_items.length})'),
+                  ),
+                  ButtonSegment(
+                    value: _ReviewFilter.pending,
+                    label: Text('解析失败 (${_skipped.length})'),
+                  ),
+                ],
+                selected: {_filter},
+                onSelectionChanged: (values) {
+                  setState(() => _filter = values.first);
+                },
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: !hasVisibleContent
+                child: listEmpty
                     ? Center(
                         child: Text(
-                          _items.isEmpty && _skipped.isEmpty
-                              ? '没有可导入的记录'
-                              : '没有匹配的搜索结果',
+                          _emptyMessage(),
                           style: AppTextStyles.bodyMuted(context),
                         ),
                       )
                     : ListView(
                         children: [
-                          if (visible.isNotEmpty) ...[
-                            Text(
-                              '已解析',
-                              style: AppTextStyles.bodyStrong(context),
-                            ),
-                            const SizedBox(height: 8),
-                            ...visible.map(
+                          if (showParsed)
+                            ..._items.map(
                               (item) => Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: _ReviewItemTile(
                                   item: item,
-                                  isSkipped: false,
                                   onRemove: () => _removeItem(item),
                                   onEdit: () => _editParsedItem(item),
+                                  onTap: () => showBankBillImportDetailSheet(
+                                    context,
+                                    item: item,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                          if (visibleSkipped.isNotEmpty) ...[
-                            if (visible.isNotEmpty) const SizedBox(height: 12),
-                            Text(
-                              '解析失败（可编辑后导入）',
-                              style: AppTextStyles.bodyStrong(context).copyWith(
-                                color: colors.danger,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ...visibleSkipped.map(
+                            )
+                          else
+                            ..._skipped.map(
                               (row) => Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: _SkippedItemTile(
                                   row: row,
                                   onRemove: () => _removeSkipped(row),
                                   onEdit: () => _editSkippedRow(row),
+                                  onTap: () => showBankBillSkippedDetailSheet(
+                                    context,
+                                    row: row,
+                                  ),
                                 ),
                               ),
                             ),
-                          ],
                         ],
                       ),
               ),
@@ -316,15 +293,15 @@ String _reviewSubtitle(LedgerRecord record) {
 class _ReviewItemTile extends StatelessWidget {
   const _ReviewItemTile({
     required this.item,
-    required this.isSkipped,
     required this.onRemove,
     required this.onEdit,
+    required this.onTap,
   });
 
   final BankBillParsedRecord item;
-  final bool isSkipped;
   final VoidCallback onRemove;
   final VoidCallback onEdit;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -361,8 +338,7 @@ class _ReviewItemTile extends StatelessWidget {
         amountColor: amountColor,
         subtitle: _reviewSubtitle(record),
         footer: '分类依据：${item.categoryReason}',
-        onEdit: onEdit,
-        onRemove: onRemove,
+        onTap: onTap,
       ),
     );
   }
@@ -373,11 +349,13 @@ class _SkippedItemTile extends StatelessWidget {
     required this.row,
     required this.onRemove,
     required this.onEdit,
+    required this.onTap,
   });
 
   final BankBillSkippedRow row;
   final VoidCallback onRemove;
   final VoidCallback onEdit;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -405,55 +383,49 @@ class _SkippedItemTile extends StatelessWidget {
           ),
         ],
       ),
-      child: Container(
-        decoration: AppDecorations.surface(context).copyWith(
-          border: Border.all(color: colors.danger.withValues(alpha: 0.45)),
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colors.danger.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '解析失败',
-                    style: AppTextStyles.bodyMuted(context).copyWith(
-                      color: colors.danger,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadii.card,
+          child: Ink(
+            decoration: AppDecorations.surface(context).copyWith(
+              border: Border.all(color: colors.danger.withValues(alpha: 0.45)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colors.danger.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '解析失败',
+                      style: AppTextStyles.bodyMuted(context).copyWith(
+                        color: colors.danger,
+                      ),
                     ),
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onEdit,
-                  icon: Icon(Icons.edit_outlined, size: 18, color: colors.primary),
-                ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onRemove,
-                  icon: Icon(Icons.close, size: 18, color: colors.textSecondary),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    redactBankBillSourceLine(row.sourceLine),
+                    style: AppTextStyles.bodyStrong(context),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '原因：${row.reason}',
+                    style: AppTextStyles.bodyMuted(context),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              redactBankBillSourceLine(row.sourceLine),
-              style: AppTextStyles.bodyStrong(context),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '原因：${row.reason}',
-              style: AppTextStyles.bodyMuted(context),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -466,85 +438,132 @@ class _RecordCard extends StatelessWidget {
     required this.amountColor,
     required this.subtitle,
     required this.footer,
-    required this.onEdit,
-    required this.onRemove,
+    required this.onTap,
   });
 
   final LedgerRecord record;
   final Color amountColor;
   final String subtitle;
   final String footer;
-  final VoidCallback onEdit;
-  final VoidCallback onRemove;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      decoration: AppDecorations.surface(context),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadii.card,
+        child: Ink(
+          decoration: AppDecorations.surface(context),
+          padding: const EdgeInsets.all(12),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      record.title,
-                      style: AppTextStyles.bodyStrong(context),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          record.title,
+                          style: AppTextStyles.bodyStrong(context),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(subtitle, style: AppTextStyles.bodyMuted(context)),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: AppTextStyles.bodyMuted(context)),
-                  ],
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    formatRecordAmount(record),
+                    style: AppTextStyles.bodyStrong(context).copyWith(color: amountColor),
+                  ),
+                ],
+              ),
+              if (record.notes.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  record.notes,
+                  style: AppTextStyles.bodyMuted(context),
                 ),
-              ),
-              const SizedBox(width: 8),
+              ],
+              const SizedBox(height: 6),
               Text(
-                formatRecordAmount(record),
-                style: AppTextStyles.bodyStrong(context).copyWith(color: amountColor),
+                '方式：${record.source}',
+                style: AppTextStyles.bodyMuted(context),
               ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                onPressed: onEdit,
-                icon: Icon(Icons.edit_outlined, size: 18, color: colors.primary),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                onPressed: onRemove,
-                icon: Icon(Icons.close, size: 18, color: colors.textSecondary),
+              const SizedBox(height: 6),
+              Text(
+                footer,
+                style: AppTextStyles.bodyMuted(context).copyWith(
+                  color: context.colors.primary.withValues(alpha: 0.85),
+                ),
               ),
             ],
           ),
-          if (record.notes.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              record.notes,
-              style: AppTextStyles.bodyMuted(context),
-            ),
-          ],
-          const SizedBox(height: 6),
-          Text(
-            '方式：${record.source}',
-            style: AppTextStyles.bodyMuted(context),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            footer,
-            style: AppTextStyles.bodyMuted(context).copyWith(
-              color: colors.primary.withValues(alpha: 0.85),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
+
+Future<void> showBankBillImportDetailSheet(
+  BuildContext context, {
+  required BankBillParsedRecord item,
+}) {
+  final extraRows = <RecordDetailExtraRow>[
+    RecordDetailExtraRow(label: '分类依据', value: item.categoryReason),
+    if (item.raw.sourceLine != null)
+      RecordDetailExtraRow(
+        label: '原始行',
+        value: redactBankBillSourceLine(item.raw.sourceLine!),
+      ),
+  ];
+
+  return showRecordDetailBottomSheet(
+    context,
+    child: RecordDetailSheetBody(
+      record: item.record,
+      extraRows: extraRows,
+    ),
+  );
+}
+
+Future<void> showBankBillSkippedDetailSheet(
+  BuildContext context, {
+  required BankBillSkippedRow row,
+}) {
+  final colors = context.colors;
+
+  return showRecordKeyValueDetailSheet(
+    context,
+    header: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.danger.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '解析失败',
+        style: AppTextStyles.bodyMuted(context).copyWith(
+          color: colors.danger,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    rows: [
+      RecordDetailExtraRow(label: '原因', value: row.reason),
+      RecordDetailExtraRow(
+        label: '原始行',
+        value: redactBankBillSourceLine(row.sourceLine),
+      ),
+    ],
+  );
 }
 
 Future<LedgerRecord?> showBankBillImportEditSheet(

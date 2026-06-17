@@ -9,6 +9,35 @@ import '../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/ledger_formatters.dart';
 
+class RecordDetailExtraRow {
+  const RecordDetailExtraRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+String formatFullRecordDateTime(DateTime date) {
+  final datePart = formatRecordDate(date);
+  final time =
+      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  if (datePart.contains(':')) {
+    return datePart;
+  }
+  return '$datePart $time';
+}
+
+Future<void> showRecordDetailBottomSheet(
+  BuildContext context, {
+  required Widget child,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (sheetContext) => child,
+  );
+}
+
 Future<void> showRecordDetailSheet(
   BuildContext context, {
   required LedgerRecord record,
@@ -21,37 +50,69 @@ Future<void> showRecordDetailSheet(
     }
   }
 
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (sheetContext) => _RecordDetailSheet(record: latest),
+  return showRecordDetailBottomSheet(
+    context,
+    child: RecordDetailSheetBody(
+      record: latest,
+      actions: _LedgerRecordDetailActions(record: latest),
+    ),
   );
 }
 
-class _RecordDetailSheet extends StatelessWidget {
-  const _RecordDetailSheet({required this.record});
+Future<void> showRecordKeyValueDetailSheet(
+  BuildContext context, {
+  Widget? header,
+  required List<RecordDetailExtraRow> rows,
+}) {
+  return showRecordDetailBottomSheet(
+    context,
+    child: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (header != null) ...[
+              header,
+              const SizedBox(height: 16),
+            ],
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              RecordDetailRow(label: rows[i].label, value: rows[i].value),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class RecordDetailSheetBody extends StatelessWidget {
+  const RecordDetailSheetBody({
+    super.key,
+    required this.record,
+    this.extraRows = const [],
+    this.actions,
+  });
 
   final LedgerRecord record;
+  final List<RecordDetailExtraRow> extraRows;
+  final Widget? actions;
 
-  String _formatFullDateTime(DateTime date) {
-    final datePart = formatRecordDate(date);
-    final time =
-        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    if (datePart.contains(':')) {
-      return datePart;
-    }
-    return '$datePart $time';
+  Color _amountColor(BuildContext context) {
+    final colors = context.colors;
+    return switch (record.type) {
+      LedgerRecordType.income => colors.primary,
+      LedgerRecordType.wealth => colors.primary,
+      LedgerRecordType.expense => colors.textPrimary,
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final amountColor = switch (record.type) {
-      LedgerRecordType.income => colors.primary,
-      LedgerRecordType.wealth => colors.primary,
-      LedgerRecordType.expense => colors.textPrimary,
-    };
+    final amountColor = _amountColor(context);
 
     return SafeArea(
       child: Padding(
@@ -99,70 +160,115 @@ class _RecordDetailSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            _DetailRow(label: '分类', value: record.category),
+            RecordDetailRow(label: '分类', value: record.category),
             const SizedBox(height: 10),
-            _DetailRow(
+            RecordDetailRow(
               label: '时间',
-              value: _formatFullDateTime(record.createdAt),
+              value: formatFullRecordDateTime(record.createdAt),
             ),
             const SizedBox(height: 10),
             if (record.source.isNotEmpty) ...[
-              _DetailRow(label: '方式', value: record.source),
+              RecordDetailRow(label: '方式', value: record.source),
               const SizedBox(height: 10),
             ],
             if (record.notes.isNotEmpty) ...[
+              RecordDetailRow(label: '备注', value: record.notes),
               const SizedBox(height: 10),
-              _DetailRow(label: '备注', value: record.notes),
             ],
             if (record.isWealth) ...[
               if (record.wealthMeta.hasRate) ...[
-                const SizedBox(height: 10),
-                _DetailRow(
+                RecordDetailRow(
                   label: '年利率',
                   value: '${record.wealthMeta.annualRate!.toStringAsFixed(2)}%',
                 ),
+                const SizedBox(height: 10),
               ],
               if (record.wealthMeta.hasMaturity) ...[
-                const SizedBox(height: 10),
-                _DetailRow(
+                RecordDetailRow(
                   label: '到期日',
                   value:
                       '${record.wealthMeta.maturityDate!.year}/'
                       '${record.wealthMeta.maturityDate!.month}/'
                       '${record.wealthMeta.maturityDate!.day}',
                 ),
+                const SizedBox(height: 10),
               ],
               if (record.wealthMeta.remindOnMaturity) ...[
+                const RecordDetailRow(label: '提醒', value: '到期时在理财管理页展示'),
                 const SizedBox(height: 10),
-                const _DetailRow(label: '提醒', value: '到期时在理财管理页展示'),
               ],
             ],
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      openAddRecordPage(context, editingRecord: record);
-                    },
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('编辑'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _confirmDelete(context),
-                    icon: Icon(Icons.delete_outline, color: colors.danger),
-                    label: Text('删除', style: TextStyle(color: colors.danger)),
-                  ),
-                ),
-              ],
-            ),
+            for (final row in extraRows) ...[
+              RecordDetailRow(label: row.label, value: row.value),
+              const SizedBox(height: 10),
+            ],
+            if (actions != null) ...[
+              const SizedBox(height: 24),
+              actions!,
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class RecordDetailRow extends StatelessWidget {
+  const RecordDetailRow({super.key, required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 56,
+          child: Text(label, style: AppTextStyles.bodyMuted(context)),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: AppTextStyles.bodyStrong(context).copyWith(height: 1.4),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LedgerRecordDetailActions extends StatelessWidget {
+  const _LedgerRecordDetailActions({required this.record});
+
+  final LedgerRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              openAddRecordPage(context, editingRecord: record);
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('编辑'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _confirmDelete(context),
+            icon: Icon(Icons.delete_outline, color: colors.danger),
+            label: Text('删除', style: TextStyle(color: colors.danger)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -180,31 +286,5 @@ class _RecordDetailSheet extends StatelessWidget {
     if (context.mounted) {
       Navigator.of(context).pop();
     }
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 44,
-          child: Text(label, style: AppTextStyles.bodyMuted(context)),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: AppTextStyles.bodyStrong(context).copyWith(height: 1.4),
-          ),
-        ),
-      ],
-    );
   }
 }
