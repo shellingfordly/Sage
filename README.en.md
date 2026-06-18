@@ -86,7 +86,7 @@ lib/
 
 See [CHANGELOG.en.md](CHANGELOG.en.md) ([中文](CHANGELOG.md)).
 
-Current version: `1.0.0+1` (see `pubspec.yaml`).
+Current version: `1.1.0+2` (see `pubspec.yaml`).
 
 ---
 

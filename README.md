@@ -91,7 +91,7 @@ lib/
 
 功能变更记录见 [CHANGELOG.md](CHANGELOG.md)（[English](CHANGELOG.en.md)）。
 
-当前版本：`1.0.0+1`（见 `pubspec.yaml`）。
+当前版本：`1.1.0+2`（见 `pubspec.yaml`）。
 
 ---
 

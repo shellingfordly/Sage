@@ -10,6 +10,31 @@ All notable changes to **Sage**（智账）are documented here. Format based on 
 
 ---
 
+## [1.1.0] - 2026-06-17
+
+### Added
+
+- **Subcategories**: default parent/child categories, inline picker expansion, subcategory CRUD in management
+- Category labels use `Parent·Child` format (parent only when no subcategory)
+- **Bill import subcategory refinement** for WeChat/Alipay (charging, tolls, takeout, etc.)
+- WeChat refund rows merged with matching expense into net-paid records
+- Delete default ledger with automatic rebuild
+
+### Changed
+
+- Unified date picker API; wealth maturity dates support far-future selection
+- Unified bill detail sheet via `RecordDetailSheetBody`
+- Renamed parent category 「人情社交」 to 「社交」 with data migration
+- Expanded subcategory icon set
+- Alipay 「人情往来」/「转账红包」 map to 「社交」
+
+### Fixed
+
+- Subcategory labels missing parent in bill detail and list views
+- WeChat merchant charging orders misclassified as shopping
+
+---
+
 ## [1.0.0] - 2026-06-08
 
 First official release (`pubspec.yaml`: `1.0.0+1`).
