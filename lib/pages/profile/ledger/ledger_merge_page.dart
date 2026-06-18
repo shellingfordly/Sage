@@ -8,7 +8,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_styles.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../utils/ledger_formatters.dart';
-import '../../../components/pickers/record_date_picker.dart';
+import '../../../components/pickers/date_picker.dart';
 
 enum _MergeRange { month, pickMonth, all, custom }
 
@@ -325,9 +325,11 @@ class _LedgerMergePageState extends State<LedgerMergePage> {
 
   Future<void> _pickMonth() async {
     final now = DateTime.now();
-    final picked = await pickMonthDate(
+    final picked = await pickDate(
       context,
       initialDate: _pickedMonth ?? now,
+      lastDate: DateTime.now(),
+      helpText: '选择月份',
     );
     if (picked == null) {
       return;

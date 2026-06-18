@@ -841,7 +841,7 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
     if (picked != null) {
       setState(() {

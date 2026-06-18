@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../components/pickers/record_date_picker.dart';
+import '../../components/pickers/date_picker.dart';
 import 'package:ledger_app/components/time_range/export_range.dart';
 import 'package:ledger_app/components/time_range/time_range_panel.dart';
 import '../../data/ledger_store.dart';

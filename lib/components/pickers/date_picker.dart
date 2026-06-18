@@ -1,34 +1,18 @@
 import 'package:flutter/material.dart';
 
-Future<DateTime?> pickRecordDate(
+Future<DateTime?> pickDate(
   BuildContext context, {
   required DateTime initialDate,
   DateTime? firstDate,
   DateTime? lastDate,
+  String? helpText,
 }) {
   return showDatePicker(
     context: context,
     initialDate: initialDate,
     firstDate: firstDate ?? DateTime(2020),
-    lastDate: lastDate ?? DateTime.now().add(const Duration(days: 365)),
-    locale: const Locale('zh', 'CN'),
-    cancelText: '取消',
-    confirmText: '确定',
-  );
-}
-
-Future<DateTime?> pickMonthDate(
-  BuildContext context, {
-  required DateTime initialDate,
-  DateTime? firstDate,
-  DateTime? lastDate,
-}) {
-  return showDatePicker(
-    context: context,
-    initialDate: initialDate,
-    firstDate: firstDate ?? DateTime(2020),
-    lastDate: lastDate ?? DateTime.now(),
-    helpText: '选择月份',
+    lastDate: lastDate ?? DateTime(2100, 12, 31),
+    helpText: helpText,
     locale: const Locale('zh', 'CN'),
     cancelText: '取消',
     confirmText: '确定',

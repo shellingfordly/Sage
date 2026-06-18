@@ -9,7 +9,7 @@ import '../theme/app_styles.dart';
 import '../theme/app_text_styles.dart';
 import '../components/fields/read_only_method_field.dart';
 import '../components/sheets/category_picker_sheet.dart';
-import '../components/pickers/record_date_picker.dart';
+import '../components/pickers/date_picker.dart';
 
 Future<void> openAddRecordPage(
   BuildContext context, {
@@ -339,7 +339,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await pickRecordDate(
+    final picked = await pickDate(
       context,
       initialDate: _selectedDate,
     );
@@ -358,9 +358,10 @@ class _AddRecordPageState extends State<AddRecordPage> {
   }
 
   Future<void> _pickMaturityDate() async {
-    final picked = await pickRecordDate(
+    final picked = await pickDate(
       context,
       initialDate: _maturityDate ?? _selectedDate,
+      helpText: '选择到期日',
     );
     if (picked != null) {
       setState(() => _maturityDate = picked);
