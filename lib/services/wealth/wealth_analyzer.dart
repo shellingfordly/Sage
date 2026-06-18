@@ -198,15 +198,18 @@ bool isLegacyWealthCategoryRecord(LedgerRecord record) {
 }
 
 LedgerRecord migrateLegacyWealthRecord(LedgerRecord record) {
-  if (!isLegacyWealthCategoryRecord(record)) {
-    return record;
+  if (isLegacyWealthCategoryRecord(record)) {
+    final category = record.isIncome ? '收益' : '定期存款';
+    return record.copyWith(
+      type: LedgerRecordType.wealth,
+      category: category,
+      wealthMeta: const WealthMeta(),
+    );
   }
-  final category = record.isIncome ? '收益' : '定期存款';
-  return record.copyWith(
-    type: LedgerRecordType.wealth,
-    category: category,
-    wealthMeta: const WealthMeta(),
-  );
+  if (record.category == '人情社交') {
+    return record.copyWith(category: '社交');
+  }
+  return record;
 }
 
 List<LedgerCategory> migrateLegacyCategories(List<LedgerCategory> categories) {
@@ -218,6 +221,14 @@ List<LedgerCategory> migrateLegacyCategories(List<LedgerCategory> categories) {
       )
       .toList();
 
+  final existingIds = result.map((category) => category.id).toSet();
+  for (final defaultCategory in defaultCategories()) {
+    if (!existingIds.contains(defaultCategory.id)) {
+      result.add(defaultCategory);
+      existingIds.add(defaultCategory.id);
+    }
+  }
+
   for (final defaultCategory in defaultWealthCategories()) {
     final exists = result.any(
       (category) =>
@@ -228,6 +239,24 @@ List<LedgerCategory> migrateLegacyCategories(List<LedgerCategory> categories) {
       result.add(defaultCategory);
     }
   }
+  for (var index = 0; index < result.length; index++) {
+    final current = result[index];
+    if (current.name == '人情社交') {
+      result[index] = current.copyWith(name: '社交');
+    }
+  }
+  final defaultsById = {
+    for (final category in defaultCategories()) category.id: category,
+  };
+  for (var index = 0; index < result.length; index++) {
+    final current = result[index];
+    final defaultCategory = defaultsById[current.id];
+    if (defaultCategory != null &&
+        current.iconKey != defaultCategory.iconKey) {
+      result[index] = current.copyWith(iconKey: defaultCategory.iconKey);
+    }
+  }
+
   return result;
 }
 

@@ -3,11 +3,14 @@ import 'dart:typed_data';
 import '../../../models/ledger_record.dart';
 import '../../../utils/record_import_parser.dart';
 import '../bank_bill_models.dart';
+import '../bank_bill_subcategory_resolver.dart';
 import '../bill_import_source.dart';
 import '../wechat_xlsx_reader.dart';
 
 class WeChatXlsxBillTemplate {
   const WeChatXlsxBillTemplate();
+
+  static const _subcategoryResolver = BankBillSubcategoryResolver();
 
   static const templateId = 'wechat-xlsx-v1';
 
@@ -256,7 +259,15 @@ class WeChatXlsxBillTemplate {
   }) {
     final netAmount = paidAmount - refundAmount;
     final wechatType = expense.type;
-    final mappedCategory = _mapCategory(wechatType, false);
+    final parentCategory = _mapCategory(wechatType, false);
+    final refined = _subcategoryResolver.refine(
+      parentCategory: parentCategory,
+      type: LedgerRecordType.expense,
+      platformCategory: wechatType,
+      counterparty: expense.counterparty,
+      description: expense.columns.elementAtOrNull(_columnProduct),
+      summary: expense.raw.transactionSummary,
+    );
     final recordSource = expense.raw.importSource?.trim() ?? '';
     final paidText = _formatWeChatAmount(paidAmount);
     final refundText = _formatWeChatAmount(refundAmount);
@@ -271,7 +282,7 @@ class WeChatXlsxBillTemplate {
         title: _recordTitle(expense.raw),
         amount: displayAmount,
         type: LedgerRecordType.expense,
-        category: mappedCategory,
+        category: refined.category,
         createdAt: expense.raw.date,
         notes: notes,
         source: recordSource.isNotEmpty
@@ -319,7 +330,15 @@ class WeChatXlsxBillTemplate {
   BankBillParsedRecord _buildRecord(BankBillRawRow raw, {required int rowIndex}) {
     final columns = raw.sourceLine?.split(',') ?? const <String>[];
     final wechatType = columns.elementAtOrNull(_columnType)?.trim() ?? '';
-    final mappedCategory = _mapCategory(wechatType, raw.amount >= 0);
+    final parentCategory = _mapCategory(wechatType, raw.amount >= 0);
+    final refined = _subcategoryResolver.refine(
+      parentCategory: parentCategory,
+      type: raw.amount >= 0 ? LedgerRecordType.income : LedgerRecordType.expense,
+      platformCategory: wechatType,
+      counterparty: columns.elementAtOrNull(_columnCounterparty),
+      description: columns.elementAtOrNull(_columnProduct),
+      summary: raw.transactionSummary,
+    );
     final recordSource = raw.importSource?.trim() ?? '';
 
     return BankBillParsedRecord(
@@ -328,16 +347,35 @@ class WeChatXlsxBillTemplate {
         title: _recordTitle(raw),
         amount: raw.amount.abs(),
         type: raw.amount >= 0 ? LedgerRecordType.income : LedgerRecordType.expense,
-        category: mappedCategory,
+        category: refined.category,
         createdAt: raw.date,
         notes: wechatType.isEmpty ? '' : '交易类型：$wechatType',
         source: recordSource.isNotEmpty
             ? recordSource
             : BillImportSource.unknown,
       ),
-      categoryReason: '微信交易类型「$wechatType」映射为「$mappedCategory」',
+      categoryReason: _buildCategoryReason(
+        wechatType: wechatType,
+        parentCategory: parentCategory,
+        refined: refined,
+      ),
       raw: raw,
     );
+  }
+
+  String _buildCategoryReason({
+    required String wechatType,
+    required String parentCategory,
+    required BankBillCategoryResolution refined,
+  }) {
+    final mappedLabel = refined.category == parentCategory
+        ? parentCategory
+        : refined.category;
+    final base = '微信交易类型「$wechatType」映射为「$mappedLabel」';
+    if (refined.detail.isEmpty) {
+      return base;
+    }
+    return '$base，${refined.detail}';
   }
 
   String _recordTitle(BankBillRawRow raw) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/ledger_store.dart';
+import '../../../models/ledger_record.dart';
 import '../../profile/budget_management_page.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_styles.dart';
@@ -331,7 +332,7 @@ class _CategoryShiftPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${change.category} ${formatCurrency(change.currentAmount)} '
+                    '${ledgerStore.categoryLabelFor(change.category, LedgerRecordType.expense)} ${formatCurrency(change.currentAmount)} '
                     '(${_formatSignedChange(change.changeAmount, change.changePercent)})',
                     style: AppTextStyles.bodyMuted(context).copyWith(
                       color: context.colors.textPrimary,
@@ -590,7 +591,7 @@ class _NotablePanel extends StatelessWidget {
                           for (final record in item.records)
                             Text(
                               '• ${formatRecordDate(record.createdAt)} · '
-                              '${record.category} · ${record.title} · '
+                              '${ledgerStore.categoryLabelFor(record.category, LedgerRecordType.expense)} · ${record.title} · '
                               '${formatCurrency(record.amount)}',
                               style: AppTextStyles.bodyMuted(context),
                             ),
@@ -633,7 +634,7 @@ class _NextMonthBudgetPanel extends StatelessWidget {
           const SizedBox(height: 8),
           for (final item in suggestion.byCategory)
             Text(
-              '• ${item.category}：建议 ${formatCurrency(item.suggestedBudget)} '
+              '• ${ledgerStore.categoryLabelFor(item.category, LedgerRecordType.expense)}：建议 ${formatCurrency(item.suggestedBudget)} '
               '(较本月 ${formatCurrency(item.delta, signed: true)})',
               style: AppTextStyles.bodyMuted(context),
             ),

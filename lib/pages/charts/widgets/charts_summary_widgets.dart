@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/ledger_store.dart';
 import '../../../models/ledger_record.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_styles.dart';
@@ -22,7 +23,7 @@ class ChartsTotalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final summary = topCategory == null
         ? '添加记录后会自动生成支出分析'
-        : '${topCategory!.category}占比最高，约 ${(topCategory!.percent * 100).round()}%';
+        : '${ledgerStore.categoryLabelFor(topCategory!.category, LedgerRecordType.expense)}占比最高，约 ${(topCategory!.percent * 100).round()}%';
 
     return Container(
       width: double.infinity,

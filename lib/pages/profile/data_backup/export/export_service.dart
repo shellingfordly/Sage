@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ledger_app/components/time_range/export_range.dart';
 
+import '../../../../data/ledger_store.dart';
 import '../../../../models/ledger_record.dart';
 import '../../../../utils/file_name_utils.dart';
 import '../../../../utils/platform_file_io.dart';
@@ -72,7 +73,7 @@ class ExportService {
       sheet.appendRow([
         xl.TextCellValue(formatImportDateTime(record.createdAt)),
         xl.TextCellValue(recordTypeLabel(record.type)),
-        xl.TextCellValue(record.category),
+        xl.TextCellValue(ledgerStore.categoryLabelForRecord(record)),
         xl.TextCellValue(record.title),
         xl.DoubleCellValue(record.amount),
         xl.TextCellValue(record.notes),

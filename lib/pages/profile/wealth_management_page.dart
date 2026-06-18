@@ -370,7 +370,7 @@ class _MaturityCard extends StatelessWidget {
           Text(record.title, style: AppTextStyles.bodyStrong(context)),
           const SizedBox(height: 4),
           Text(
-            '${record.category} · 本金 ${formatCurrency(record.amount)}',
+            '${ledgerStore.categoryLabelForRecord(record)} · 本金 ${formatCurrency(record.amount)}',
             style: AppTextStyles.bodyMuted(context),
           ),
           const SizedBox(height: 4),
@@ -436,7 +436,7 @@ class _WealthRecordList extends StatelessWidget {
               ),
               title: Text(record.title),
               subtitle: Text(
-                '${record.category} · ${formatRecordDate(record.createdAt)}'
+                '${ledgerStore.categoryLabelForRecord(record)} · ${formatRecordDate(record.createdAt)}'
                 '${record.wealthMeta.hasRate ? ' · 年利率 ${record.wealthMeta.annualRate!.toStringAsFixed(2)}%' : ''}',
               ),
               trailing: Text(

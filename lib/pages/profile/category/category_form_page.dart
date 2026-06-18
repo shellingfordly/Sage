@@ -12,12 +12,16 @@ class CategoryFormPage extends StatefulWidget {
     super.key,
     required this.type,
     this.category,
+    this.parentCategory,
   });
 
   final LedgerRecordType type;
   final LedgerCategory? category;
+  final LedgerCategory? parentCategory;
 
   bool get isEditing => category != null;
+  bool get isSubcategoryForm =>
+      parentCategory != null || category?.isSubcategory == true;
 
   @override
   State<CategoryFormPage> createState() => _CategoryFormPageState();
@@ -30,6 +34,22 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
 
+  LedgerCategory? get _parentCategory {
+    if (widget.parentCategory != null) {
+      return widget.parentCategory;
+    }
+    if (widget.category?.parentId == null) {
+      return null;
+    }
+    final categories = ledgerStore.categoriesForType(widget.category!.type);
+    for (final category in categories) {
+      if (category.id == widget.category!.parentId) {
+        return category;
+      }
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +57,7 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
     _nameController = TextEditingController(text: widget.category?.name ?? '');
     _selectedIconKey =
         widget.category?.iconKey ??
+        _parentCategory?.iconKey ??
         iconKeyForCategoryName('其他', _selectedType);
   }
 
@@ -64,6 +85,7 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
             type: _selectedType,
             name: name,
             iconKey: _selectedIconKey,
+            parentId: _parentCategory?.id,
           );
 
     if (!mounted) {
@@ -85,10 +107,15 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final parentCategory = _parentCategory;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isEditing ? '编辑分类' : '新增分类'),
+        title: Text(
+          widget.isEditing
+              ? '编辑${widget.isSubcategoryForm ? '子' : ''}分类'
+              : '新增${widget.isSubcategoryForm ? '子' : ''}分类',
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -101,7 +128,30 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (!widget.isEditing)
+                      if (parentCategory != null)
+                        InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: '所属分类',
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadii.card,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                categoryIconForKey(parentCategory.iconKey),
+                                size: 18,
+                                color: colors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                parentCategory.name,
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (!widget.isEditing)
                         SegmentedButton<LedgerRecordType>(
                           showSelectedIcon: false,
                           style: SegmentedButton.styleFrom(
@@ -166,8 +216,10 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
                       const SizedBox(height: 20),
                       AppFormTextField(
                         controller: _nameController,
-                        label: '分类名称',
-                        hintText: '例如：早餐、房租、副业',
+                        label: widget.isSubcategoryForm ? '子分类名称' : '分类名称',
+                        hintText: widget.isSubcategoryForm
+                            ? '例如：咖啡奶茶、停车、副业'
+                            : '例如：早餐、房租、副业',
                         maxLength: 12,
                         autofocus: !widget.isEditing,
                         textInputAction: TextInputAction.done,

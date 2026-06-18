@@ -149,23 +149,23 @@ void main() {
           '当前状态',
         ],
         [
-          '2026-06-05 19:10:40',
+          '2000-01-04 19:10:40',
           '商户消费',
-          '充电桩五金店',
-          '充电桩五金店',
+          '示例五金店',
+          '示例五金店',
           '支出',
           '1.00',
-          '零钱',
+          '方式A',
           '已退款(¥0.09)',
         ],
         [
-          '2026-06-06 01:16:11',
-          '充电桩五金店-退款',
-          '充电桩五金店',
-          '充电桩五金店',
+          '2000-01-05 01:16:11',
+          '示例五金店-退款',
+          '示例五金店',
+          '示例五金店',
           '收入',
           '0.09',
-          '零钱',
+          '方式A',
           '已退款¥0.09',
         ],
       ];
@@ -191,23 +191,23 @@ void main() {
           '当前状态',
         ],
         [
-          '2026-01-07 09:19:27',
-          '蓝小鲜新能源-退款',
-          '蓝小鲜新能源',
-          '蓝小鲜新能源',
+          '2000-01-05 09:19:27',
+          '示例新能源-退款',
+          '示例新能源',
+          '示例新能源',
           '收入',
-          '50.00',
-          '亲属卡',
+          '40.00',
+          '方式C',
           '已全额退款',
         ],
         [
-          '2026-01-07 09:18:29',
+          '2000-01-05 09:18:29',
           '商户消费',
-          '蓝小鲜新能源',
+          '示例新能源',
           '充电订单',
           '支出',
-          '50.00',
-          '亲属卡(over)',
+          '40.00',
+          '方式C',
           '已全额退款',
         ],
       ];
@@ -219,8 +219,40 @@ void main() {
       expect(merged.amount, 0);
       expect(merged.type, LedgerRecordType.expense);
       expect(merged.title, '充电订单');
-      expect(merged.notes, contains('付款¥50，退款¥50'));
+      expect(merged.category, '加油充电');
+      expect(merged.notes, contains('付款¥40，退款¥40'));
       expect(result.records.first.categoryReason, contains('全额退款'));
+    });
+
+    test('parseRows categorizes pay-after-charging as 加油充电', () {
+      final rows = [
+        ['微信支付账单明细'],
+        [
+          '交易时间',
+          '交易类型',
+          '交易对方',
+          '商品',
+          '收/支',
+          '金额(元)',
+          '支付方式',
+          '当前状态',
+        ],
+        [
+          '2000-01-06 13:00:00',
+          '商户消费',
+          '充电平台A',
+          '先充后付',
+          '支出',
+          '8.00',
+          '方式C',
+          '支付成功',
+        ],
+      ];
+
+      final result = template.parseRows(rows);
+      expect(result.records.length, 1);
+      expect(result.records.first.record.title, '先充后付');
+      expect(result.records.first.record.category, '加油充电');
     });
 
     test('parseRows uses counterparty when product is empty', () {

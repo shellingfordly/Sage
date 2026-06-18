@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../data/ledger_store.dart';
 import '../../../components/charts/liquid_category_disk.dart';
 import '../../../models/ledger_record.dart';
 import '../../../theme/app_colors.dart';
@@ -144,7 +145,10 @@ class _CategoryDisk extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          category.category,
+          ledgerStore.categoryLabelFor(
+            category.category,
+            LedgerRecordType.expense,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,

@@ -56,14 +56,7 @@ class LedgerStore extends ChangeNotifier {
       if (record.type != type || !names.add(record.category)) {
         continue;
       }
-      result.add(
-        LedgerCategory(
-          id: '${type.name}-${record.category}',
-          name: record.category,
-          type: type,
-          iconKey: iconKeyForCategoryName(record.category, type),
-        ),
-      );
+      result.add(resolveOrphanCategory(type, record.category));
     }
 
     if (result.isEmpty) {
@@ -86,6 +79,42 @@ class LedgerStore extends ChangeNotifier {
       return categoryIconForKey(matched.first.iconKey);
     }
     return categoryIconForKey(iconKeyForCategoryName(categoryName, type));
+  }
+
+  String categoryLabelFor(
+    String categoryName,
+    LedgerRecordType type, {
+    String? ledgerId,
+  }) {
+    return resolveCategoryLabel(
+      name: categoryName,
+      type: type,
+      ledgerCategories: categoriesForType(type, ledgerId: ledgerId),
+    );
+  }
+
+  String categoryLabelForRecord(
+    LedgerRecord record, {
+    String? ledgerId,
+  }) {
+    return categoryLabelFor(
+      record.category,
+      record.type,
+      ledgerId: ledgerId,
+    );
+  }
+
+  String categoryLabelForName(
+    String categoryName, {
+    String? ledgerId,
+  }) {
+    final allCategories = <LedgerCategory>[
+      ...defaultCategories(),
+      ...categoriesForType(LedgerRecordType.expense, ledgerId: ledgerId),
+      ...categoriesForType(LedgerRecordType.income, ledgerId: ledgerId),
+      ...categoriesForType(LedgerRecordType.wealth, ledgerId: ledgerId),
+    ];
+    return formatCategoryLabelFromAll(allCategories, categoryName);
   }
 
   LedgerBook get _currentLedger {
@@ -456,6 +485,7 @@ class LedgerStore extends ChangeNotifier {
     required LedgerRecordType type,
     required String name,
     required String iconKey,
+    String? parentId,
     String? ledgerId,
   }) async {
     final targetLedgerId = ledgerId ?? _currentLedger.id;
@@ -467,6 +497,18 @@ class LedgerStore extends ChangeNotifier {
       targetLedgerId,
       () => List<LedgerCategory>.from(defaultCategories()),
     );
+    if (parentId != null) {
+      LedgerCategory? parent;
+      for (final category in categories) {
+        if (category.id == parentId) {
+          parent = category;
+          break;
+        }
+      }
+      if (parent == null || parent.type != type || parent.isSubcategory) {
+        return false;
+      }
+    }
     final exists = categories.any(
       (category) => category.type == type && category.name == trimmed,
     );
@@ -479,6 +521,7 @@ class LedgerStore extends ChangeNotifier {
         name: trimmed,
         type: type,
         iconKey: iconKey,
+        parentId: parentId,
       ),
     );
     await _save();
@@ -502,7 +545,7 @@ class LedgerStore extends ChangeNotifier {
     );
 
     final typed = List<LedgerCategory>.from(
-      categoriesForType(type, ledgerId: targetLedgerId),
+      topLevelCategories(categoriesForType(type, ledgerId: targetLedgerId), type),
     );
     var insertIndex = newIndex;
     if (insertIndex > oldIndex) {
@@ -519,20 +562,23 @@ class LedgerStore extends ChangeNotifier {
     typed.insert(insertIndex, moved);
 
     final expense = type == LedgerRecordType.expense
-        ? typed
-        : categories
-              .where((category) => category.type == LedgerRecordType.expense)
-              .toList();
+        ? flattenCategoriesWithSubs(typed, categories)
+        : flattenCategoriesWithSubs(
+            topLevelCategories(categories, LedgerRecordType.expense),
+            categories,
+          );
     final income = type == LedgerRecordType.income
-        ? typed
-        : categories
-              .where((category) => category.type == LedgerRecordType.income)
-              .toList();
+        ? flattenCategoriesWithSubs(typed, categories)
+        : flattenCategoriesWithSubs(
+            topLevelCategories(categories, LedgerRecordType.income),
+            categories,
+          );
     final wealth = type == LedgerRecordType.wealth
-        ? typed
-        : categories
-              .where((category) => category.type == LedgerRecordType.wealth)
-              .toList();
+        ? flattenCategoriesWithSubs(typed, categories)
+        : flattenCategoriesWithSubs(
+            topLevelCategories(categories, LedgerRecordType.wealth),
+            categories,
+          );
 
     categories
       ..clear()
@@ -604,7 +650,15 @@ class LedgerStore extends ChangeNotifier {
       return false;
     }
     final target = categories[index];
+    final removedNames = <String>{target.name};
     categories.removeAt(index);
+    categories.removeWhere((category) {
+      if (category.parentId != target.id) {
+        return false;
+      }
+      removedNames.add(category.name);
+      return true;
+    });
 
     final fallbackName = _ensureFallbackCategory(
       categoriesByLedger: _categoriesByLedger,
@@ -614,7 +668,7 @@ class LedgerStore extends ChangeNotifier {
     final records = _recordsByLedger[targetLedgerId] ?? const <LedgerRecord>[];
     for (var i = 0; i < records.length; i++) {
       final record = records[i];
-      if (record.type == target.type && record.category == target.name) {
+      if (record.type == target.type && removedNames.contains(record.category)) {
         records[i] = record.copyWith(category: fallbackName);
       }
     }
@@ -896,6 +950,16 @@ class LedgerStore extends ChangeNotifier {
           changed = true;
         }
       }
+      final budgets = _categoryBudgetsByLedger[ledger.id];
+      if (budgets != null) {
+        for (final monthBudgets in budgets.values) {
+          final legacyAmount = monthBudgets.remove('人情社交');
+          if (legacyAmount != null) {
+            monthBudgets['社交'] = legacyAmount;
+            changed = true;
+          }
+        }
+      }
     }
     if (changed) {
       return true;
@@ -914,7 +978,8 @@ bool _sameCategoryLists(
   for (var index = 0; index < left.length; index++) {
     if (left[index].id != right[index].id ||
         left[index].name != right[index].name ||
-        left[index].type != right[index].type) {
+        left[index].type != right[index].type ||
+        left[index].parentId != right[index].parentId) {
       return false;
     }
   }

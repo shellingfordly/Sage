@@ -977,7 +977,7 @@ class _MergeRecordTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${formatMergeDateTime(record.createdAt)} · ${record.category}',
+                    '${formatMergeDateTime(record.createdAt)} · ${ledgerStore.categoryLabelForRecord(record)}',
                     style: AppTextStyles.bodyMuted(context),
                   ),
                 ],
@@ -1060,7 +1060,7 @@ class _MatchedRecordPreview extends StatelessWidget {
           Text(record.title, style: AppTextStyles.bodyStrong(context)),
           const SizedBox(height: 4),
           Text(
-            '${formatMergeDateTime(record.createdAt)} · ${record.category} · ${formatRecordAmount(record)}',
+            '${formatMergeDateTime(record.createdAt)} · ${ledgerStore.categoryLabelForRecord(record)} · ${formatRecordAmount(record)}',
             style: AppTextStyles.bodyMuted(context),
           ),
         ],

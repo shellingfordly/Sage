@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/ledger_store.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_text_styles.dart';
 import '../analysis_query.dart';
@@ -38,7 +39,9 @@ class AnalysisFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categoryLabel = selectedCategory ?? '分类';
+    final categoryLabel = selectedCategory == null
+        ? '分类'
+        : ledgerStore.categoryLabelForName(selectedCategory!);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -196,7 +199,7 @@ class _CategoryFilterSheet extends StatelessWidget {
                 ),
                 for (final category in categories)
                   _CategoryOptionChip(
-                    label: category,
+                    label: ledgerStore.categoryLabelForName(category),
                     selected: selectedCategory == category,
                     onTap: () => Navigator.of(context).pop(category),
                   ),

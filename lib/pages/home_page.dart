@@ -567,7 +567,7 @@ class _RecordTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${record.category} · ${formatRecordDate(record.createdAt)}',
+                      '${ledgerStore.categoryLabelForRecord(record)} · ${formatRecordDate(record.createdAt)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.bodyMuted(context),

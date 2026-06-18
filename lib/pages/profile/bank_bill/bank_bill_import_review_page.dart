@@ -283,7 +283,7 @@ class _BankBillImportReviewPageState extends State<BankBillImportReviewPage> {
 String _reviewSubtitle(LedgerRecord record) {
   final parts = <String>[
     ledgerRecordTypeLabel(record.type),
-    record.category,
+    ledgerStore.categoryLabelForRecord(record),
     if (record.source.isNotEmpty) record.source,
     formatRecordDate(record.createdAt),
   ];
@@ -797,7 +797,9 @@ class _BankBillImportEditSheetState extends State<_BankBillImportEditSheet> {
                   for (final category in categories)
                     DropdownMenuItem(
                       value: category.name,
-                      child: Text(category.name),
+                      child: Text(
+                        ledgerStore.categoryLabelFor(category.name, _type),
+                      ),
                     ),
                 ],
                 onChanged: (value) {

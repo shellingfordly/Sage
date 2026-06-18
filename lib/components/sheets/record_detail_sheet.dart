@@ -160,7 +160,10 @@ class RecordDetailSheetBody extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            RecordDetailRow(label: '分类', value: record.category),
+            RecordDetailRow(
+              label: '分类',
+              value: ledgerStore.categoryLabelForRecord(record),
+            ),
             const SizedBox(height: 10),
             RecordDetailRow(
               label: '时间',

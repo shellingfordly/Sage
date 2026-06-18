@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../data/ledger_store.dart';
 import '../../services/ai/category_budget_form_service.dart';
-import '../../theme/app_styles.dart';
+import '../../models/ledger_record.dart';
+import '../../../theme/app_styles.dart';
 import '../../theme/app_text_styles.dart';
 
 const _categoryBudgetFormService = CategoryBudgetFormService();
@@ -135,7 +137,10 @@ class _CategoryBudgetEditorSheetState extends State<CategoryBudgetEditorSheet> {
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: category,
+                      labelText: ledgerStore.categoryLabelFor(
+                        category,
+                        LedgerRecordType.expense,
+                      ),
                       prefixText: '¥ ',
                       border: const OutlineInputBorder(
                         borderRadius: AppRadii.card,

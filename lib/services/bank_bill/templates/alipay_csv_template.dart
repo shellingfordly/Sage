@@ -3,10 +3,13 @@ import 'dart:typed_data';
 import '../../../models/ledger_record.dart';
 import '../alipay_csv_parser.dart';
 import '../bank_bill_models.dart';
+import '../bank_bill_subcategory_resolver.dart';
 import '../bill_import_source.dart';
 
 class AlipayCsvBillTemplate {
   const AlipayCsvBillTemplate();
+
+  static const _subcategoryResolver = BankBillSubcategoryResolver();
 
   static const templateId = 'alipay-csv-v1';
 
@@ -37,14 +40,14 @@ class AlipayCsvBillTemplate {
     '爱车养车': '交通',
     '充值缴费': '居住',
     '商业服务': '其他',
-    '转账红包': '其他',
+    '人情往来': '社交',
+    '转账红包': '社交',
     '文化休闲': '娱乐',
     '运动户外': '娱乐',
     '住房物业': '居住',
     '公共服务': '其他',
     '教育': '学习',
     '保险': '其他',
-    '人情往来': '其他',
     '亲子': '其他',
     '宠物': '其他',
   };
@@ -200,7 +203,17 @@ class AlipayCsvBillTemplate {
   BankBillParsedRecord _buildRecord(BankBillRawRow raw, {required int rowIndex}) {
     final columns = parseAlipayCsvLine(raw.sourceLine ?? '');
     final alipayCategory = columns.elementAtOrNull(_columnCategory) ?? '';
-    final mappedCategory = _mapCategory(alipayCategory, raw.amount >= 0);
+    final counterparty = columns.elementAtOrNull(_columnCounterparty) ?? '';
+    final description = columns.elementAtOrNull(_columnDescription) ?? '';
+    final parentCategory = _mapCategory(alipayCategory, raw.amount >= 0);
+    final refined = _subcategoryResolver.refine(
+      parentCategory: parentCategory,
+      type: raw.amount >= 0 ? LedgerRecordType.income : LedgerRecordType.expense,
+      platformCategory: alipayCategory,
+      counterparty: counterparty,
+      description: description,
+      summary: raw.transactionSummary,
+    );
     final notes = _buildNotes(alipayCategory: alipayCategory);
     final recordSource = raw.importSource?.trim() ?? '';
 
@@ -210,16 +223,35 @@ class AlipayCsvBillTemplate {
         title: _recordTitle(raw),
         amount: raw.amount.abs(),
         type: raw.amount >= 0 ? LedgerRecordType.income : LedgerRecordType.expense,
-        category: mappedCategory,
+        category: refined.category,
         createdAt: raw.date,
         notes: notes,
         source: recordSource.isNotEmpty
             ? recordSource
             : BillImportSource.unknown,
       ),
-      categoryReason: '支付宝分类「$alipayCategory」映射为「$mappedCategory」',
+      categoryReason: _buildCategoryReason(
+        platformCategory: alipayCategory,
+        parentCategory: parentCategory,
+        refined: refined,
+      ),
       raw: raw,
     );
+  }
+
+  String _buildCategoryReason({
+    required String platformCategory,
+    required String parentCategory,
+    required BankBillCategoryResolution refined,
+  }) {
+    final mappedLabel = refined.category == parentCategory
+        ? parentCategory
+        : refined.category;
+    final base = '支付宝分类「$platformCategory」映射为「$mappedLabel」';
+    if (refined.detail.isEmpty) {
+      return base;
+    }
+    return '$base，${refined.detail}';
   }
 
   String _recordTitle(BankBillRawRow raw) {

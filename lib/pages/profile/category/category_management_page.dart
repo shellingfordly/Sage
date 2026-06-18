@@ -19,11 +19,15 @@ class CategoryManagementPage extends StatefulWidget {
 
 class _CategoryManagementPageState extends State<CategoryManagementPage> {
   LedgerRecordType _selectedType = LedgerRecordType.expense;
+  final Set<String> _expandedParentIds = {};
 
-  Future<void> _openCreatePage() async {
+  Future<void> _openCreatePage({LedgerCategory? parentCategory}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (context) => CategoryFormPage(type: _selectedType),
+        builder: (context) => CategoryFormPage(
+          type: _selectedType,
+          parentCategory: parentCategory,
+        ),
       ),
     );
   }
@@ -40,10 +44,15 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
   }
 
   Future<void> _deleteCategory(LedgerCategory category) async {
+    final categories = ledgerStore.categoriesForType(_selectedType);
+    final childCount = subcategoriesOf(categories, category.id).length;
+    final content = childCount == 0
+        ? '确认删除「${category.name}」吗？该分类历史记录会归类到“其他”。'
+        : '确认删除「${category.name}」及其 $childCount 个子分类吗？相关历史记录会归类到“其他”。';
     final confirmed = await showConfirmDialog(
       context,
       title: '删除分类',
-      content: '确认删除「${category.name}」吗？该分类历史记录会归类到“其他”。',
+      content: content,
       confirmText: '删除',
     );
     if (confirmed != true) {
@@ -53,7 +62,18 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
     if (!mounted) {
       return;
     }
+    setState(() => _expandedParentIds.remove(category.id));
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已删除分类')));
+  }
+
+  void _toggleExpanded(String parentId) {
+    setState(() {
+      if (_expandedParentIds.contains(parentId)) {
+        _expandedParentIds.remove(parentId);
+      } else {
+        _expandedParentIds.add(parentId);
+      }
+    });
   }
 
   @override
@@ -63,7 +83,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
         title: const Text('分类管理'),
         actions: [
           TextButton.icon(
-            onPressed: _openCreatePage,
+            onPressed: () => _openCreatePage(),
             icon: const Icon(Icons.add),
             label: const Text('新建分类'),
           ),
@@ -76,6 +96,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
             animation: ledgerStore,
             builder: (context, child) {
               final categories = ledgerStore.categoriesForType(_selectedType);
+              final topLevel = topLevelCategories(categories, _selectedType);
               final colors = context.colors;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,12 +126,15 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                     ],
                     selected: {_selectedType},
                     onSelectionChanged: (values) {
-                      setState(() => _selectedType = values.first);
+                      setState(() {
+                        _selectedType = values.first;
+                        _expandedParentIds.clear();
+                      });
                     },
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '可添加、编辑和删除分类；长按拖动可调整顺序，删除后历史记录会归类到“其他”。',
+                    '可添加、编辑和删除分类；长按拖动可调整主分类顺序，删除后历史记录会归类到“其他”。',
                     style: AppTextStyles.bodyMuted(context),
                   ),
                   const SizedBox(height: 12),
@@ -129,7 +153,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                         child: SlidableAutoCloseBehavior(
                           child: ReorderableListView.builder(
                             buildDefaultDragHandles: false,
-                            itemCount: categories.length,
+                            itemCount: topLevel.length,
                             onReorder: (oldIndex, newIndex) {
                               ledgerStore.reorderCategoriesForType(
                                 type: _selectedType,
@@ -156,28 +180,56 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                               );
                             },
                             itemBuilder: (context, index) {
-                              final category = categories[index];
-                              final isLast = index == categories.length - 1;
-                              return ReorderableDelayedDragStartListener(
+                              final category = topLevel[index];
+                              final subs = subcategoriesOf(categories, category.id);
+                              final expanded = _expandedParentIds.contains(category.id);
+                              final isLast = index == topLevel.length - 1;
+                              return Column(
                                 key: ValueKey('category-${category.id}'),
-                                index: index,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _CategorySlidableRow(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ReorderableDelayedDragStartListener(
+                                    index: index,
+                                    child: _CategorySlidableRow(
                                       category: category,
+                                      subtitle: subs.isEmpty
+                                          ? _typeLabel(category.type)
+                                          : '${_typeLabel(category.type)} · ${subs.length} 个子分类',
+                                      trailing: subs.isEmpty
+                                          ? null
+                                          : IconButton(
+                                              tooltip: expanded ? '收起子分类' : '展开子分类',
+                                              onPressed: () => _toggleExpanded(category.id),
+                                              icon: Icon(
+                                                expanded
+                                                    ? Icons.expand_less_rounded
+                                                    : Icons.expand_more_rounded,
+                                                color: colors.chevron,
+                                              ),
+                                            ),
                                       onEdit: () => _openEditPage(category),
                                       onDelete: () => _deleteCategory(category),
+                                      onAddSubcategory: category.isSubcategory
+                                          ? null
+                                          : () => _openCreatePage(parentCategory: category),
                                     ),
-                                    if (!isLast)
-                                      Divider(
-                                        height: 1,
-                                        thickness: 1,
-                                        indent: 62,
-                                        color: colors.divider,
+                                  ),
+                                  if (expanded && subs.isNotEmpty)
+                                    ...subs.map(
+                                      (sub) => _SubCategorySlidableRow(
+                                        category: sub,
+                                        onEdit: () => _openEditPage(sub),
+                                        onDelete: () => _deleteCategory(sub),
                                       ),
-                                  ],
-                                ),
+                                    ),
+                                  if (!isLast)
+                                    Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      indent: 62,
+                                      color: colors.divider,
+                                    ),
+                                ],
                               );
                             },
                           ),
@@ -193,10 +245,77 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
       ),
     );
   }
+
+  String _typeLabel(LedgerRecordType type) {
+    return switch (type) {
+      LedgerRecordType.expense => '支出分类',
+      LedgerRecordType.income => '收入分类',
+      LedgerRecordType.wealth => '理财分类',
+    };
+  }
 }
 
 class _CategorySlidableRow extends StatelessWidget {
   const _CategorySlidableRow({
+    required this.category,
+    required this.subtitle,
+    required this.onEdit,
+    required this.onDelete,
+    this.onAddSubcategory,
+    this.trailing,
+  });
+
+  final LedgerCategory category;
+  final String subtitle;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback? onAddSubcategory;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Slidable(
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: onAddSubcategory == null ? 0.48 : 0.72,
+        children: [
+          if (onAddSubcategory != null)
+            SlidableAction(
+              onPressed: (_) => onAddSubcategory!(),
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onStrong,
+              icon: Icons.add_outlined,
+              label: '子分类',
+            ),
+          SlidableAction(
+            onPressed: (_) => onEdit(),
+            backgroundColor: colors.info,
+            foregroundColor: colors.onStrong,
+            icon: Icons.edit_outlined,
+            label: '编辑',
+          ),
+          SlidableAction(
+            onPressed: (_) => onDelete(),
+            backgroundColor: colors.danger,
+            foregroundColor: colors.onStrong,
+            icon: Icons.delete_outline,
+            label: '删除',
+          ),
+        ],
+      ),
+      child: _CategoryRowContent(
+        category: category,
+        subtitle: subtitle,
+        trailing: trailing,
+      ),
+    );
+  }
+}
+
+class _SubCategorySlidableRow extends StatelessWidget {
+  const _SubCategorySlidableRow({
     required this.category,
     required this.onEdit,
     required this.onDelete,
@@ -231,15 +350,30 @@ class _CategorySlidableRow extends StatelessWidget {
           ),
         ],
       ),
-      child: _CategoryRowContent(category: category),
+      child: _CategoryRowContent(
+        category: category,
+        subtitle: '子分类',
+        indent: 28,
+        showDragHandle: false,
+      ),
     );
   }
 }
 
 class _CategoryRowContent extends StatelessWidget {
-  const _CategoryRowContent({required this.category});
+  const _CategoryRowContent({
+    required this.category,
+    required this.subtitle,
+    this.trailing,
+    this.indent = 0,
+    this.showDragHandle = true,
+  });
 
   final LedgerCategory category;
+  final String subtitle;
+  final Widget? trailing;
+  final double indent;
+  final bool showDragHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +382,7 @@ class _CategoryRowContent extends StatelessWidget {
     return ColoredBox(
       color: colors.surface,
       child: ListTile(
+        contentPadding: EdgeInsets.fromLTRB(16 + indent, 0, 8, 0),
         leading: Container(
           width: 38,
           height: 38,
@@ -259,17 +394,16 @@ class _CategoryRowContent extends StatelessWidget {
         ),
         title: Text(category.name, style: AppTextStyles.bodyStrong(context)),
         subtitle: Text(
-          category.type == LedgerRecordType.expense
-              ? '支出分类'
-              : category.type == LedgerRecordType.income
-              ? '收入分类'
-              : '理财分类',
+          subtitle,
           style: AppTextStyles.bodyMuted(context),
         ),
-        trailing: Icon(
-          Icons.drag_indicator_rounded,
-          color: colors.chevron,
-        ),
+        trailing: trailing ??
+            (showDragHandle
+                ? Icon(
+                    Icons.drag_indicator_rounded,
+                    color: colors.chevron,
+                  )
+                : null),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import '../../models/ledger_record.dart';
 import 'bank_bill_models.dart';
+import 'bank_bill_subcategory_resolver.dart';
 
 class BankBillCategoryResult {
   const BankBillCategoryResult({
@@ -17,10 +18,31 @@ class BankBillCategoryResult {
 class BankBillCategorizer {
   const BankBillCategorizer();
 
+  static const _subcategoryResolver = BankBillSubcategoryResolver();
+
   BankBillCategoryResult categorize(BankBillRawRow raw) {
     final summary = normalizeBankBillTransactionSummary(raw.transactionSummary);
     final isInflow = raw.amount >= 0;
+    final base = _categorizeBase(summary: summary, isInflow: isInflow);
+    final refined = _subcategoryResolver.refine(
+      parentCategory: base.category,
+      type: base.type,
+      summary: summary,
+    );
+    if (refined.detail.isEmpty) {
+      return base;
+    }
+    return BankBillCategoryResult(
+      type: base.type,
+      category: refined.category,
+      reason: '${base.reason}，${refined.detail}',
+    );
+  }
 
+  BankBillCategoryResult _categorizeBase({
+    required String summary,
+    required bool isInflow,
+  }) {
     if (isInflow &&
         _containsAny(summary, const ['理财', '基金', '利息', '收益', '分红'])) {
       return const BankBillCategoryResult(
@@ -109,7 +131,22 @@ class BankBillCategorizer {
       );
     }
 
-    if (_containsAny(summary, const ['地铁', '公交', '出租', '加油', '停车', '铁路', '交通'])) {
+    if (_containsAny(summary, const [
+      '地铁',
+      '公交',
+      '出租',
+      '加油',
+      '充电',
+      '充电桩',
+      '先充后付',
+      '新能源',
+      '快电',
+      '停车',
+      '铁路',
+      '交通',
+      'ETC',
+      '通行费',
+    ])) {
       return const BankBillCategoryResult(
         type: LedgerRecordType.expense,
         category: '交通',
