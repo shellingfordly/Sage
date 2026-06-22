@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/import_category_rule.dart';
 import '../models/ledger_book.dart';
 import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
@@ -65,6 +66,7 @@ class LedgerRepository {
           payload['wealthMonthlyTargetsByLedger'];
       final legacyWealthYearlyTargetsRaw =
           payload['wealthYearlyTargetsByLedger'];
+      final importCategoryRulesRaw = payload['importCategoryRules'];
 
       final ledgers = ledgersRaw is List
           ? ledgersRaw
@@ -185,6 +187,8 @@ class LedgerRepository {
         );
       }
 
+      final importCategoryRules = _parseImportCategoryRules(importCategoryRulesRaw);
+
       final fallbackLedgerId = ledgers.first.id;
       return LedgerRepositoryData(
         ledgers: ledgers,
@@ -195,6 +199,7 @@ class LedgerRepository {
         categoriesByLedger: categoriesByLedger,
         wealthMonthlyTargetByLedger: wealthMonthlyTargetByLedger,
         wealthYearlyTargetByLedger: wealthYearlyTargetByLedger,
+        importCategoryRules: importCategoryRules,
       );
     } on FormatException {
       return LedgerRepositoryData.empty();
@@ -228,6 +233,8 @@ class LedgerRepository {
       },
       'wealthMonthlyTargetByLedger': data.wealthMonthlyTargetByLedger,
       'wealthYearlyTargetByLedger': data.wealthYearlyTargetByLedger,
+      'importCategoryRules':
+          data.importCategoryRules.map((rule) => rule.toJson()).toList(),
     });
     return _preferences.setString(_recordsKey, encoded);
   }
@@ -290,6 +297,18 @@ Map<String, Map<String, double>> _parseMonthlyTargets(Object? raw) {
   return result;
 }
 
+List<ImportCategoryRule> _parseImportCategoryRules(Object? raw) {
+  if (raw is! List) {
+    return const [];
+  }
+  final rules = raw
+      .whereType<Map>()
+      .map((item) => ImportCategoryRule.fromJson(Map<String, Object?>.from(item)))
+      .toList()
+    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  return rules;
+}
+
 class LedgerRepositoryData {
   const LedgerRepositoryData({
     required this.ledgers,
@@ -300,6 +319,7 @@ class LedgerRepositoryData {
     required this.categoriesByLedger,
     this.wealthMonthlyTargetByLedger = const {},
     this.wealthYearlyTargetByLedger = const {},
+    this.importCategoryRules = const [],
   });
 
   final List<LedgerBook> ledgers;
@@ -310,6 +330,7 @@ class LedgerRepositoryData {
   final Map<String, List<LedgerCategory>> categoriesByLedger;
   final Map<String, double> wealthMonthlyTargetByLedger;
   final Map<String, double> wealthYearlyTargetByLedger;
+  final List<ImportCategoryRule> importCategoryRules;
 
   factory LedgerRepositoryData.empty() {
     final defaultLedger = LedgerBook(

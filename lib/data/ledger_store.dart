@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/import_category_rule.dart';
 import '../models/ledger_book.dart';
 import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
@@ -23,6 +24,7 @@ class LedgerStore extends ChangeNotifier {
   final Map<String, double> _wealthMonthlyTargetByLedger = {};
   final Map<String, double> _wealthYearlyTargetByLedger = {};
   final Map<String, List<LedgerCategory>> _categoriesByLedger = {};
+  final List<ImportCategoryRule> _importCategoryRules = [];
   String? _currentLedgerId;
 
   bool _loaded = false;
@@ -33,6 +35,8 @@ class LedgerStore extends ChangeNotifier {
   List<LedgerBook> get ledgers => List.unmodifiable(_ledgers);
   LedgerBook get currentLedger => _currentLedger;
   List<LedgerRecord> get records => List.unmodifiable(_currentRecords);
+  List<ImportCategoryRule> get importCategoryRules =>
+      List.unmodifiable(_importCategoryRules);
   List<LedgerCategory> categoriesForType(
     LedgerRecordType type, {
     String? ledgerId,
@@ -183,6 +187,9 @@ class LedgerStore extends ChangeNotifier {
     _wealthYearlyTargetByLedger
       ..clear()
       ..addAll(snapshot.wealthYearlyTargetByLedger);
+    _importCategoryRules
+      ..clear()
+      ..addAll(snapshot.importCategoryRules);
     final migrated = _migrateLegacyWealthRecords();
     if (migrated) {
       await _save();
@@ -526,6 +533,106 @@ class LedgerStore extends ChangeNotifier {
     );
     await _save();
     return true;
+  }
+
+  bool _expenseCategoryExists(String categoryName) {
+    return categoriesForType(LedgerRecordType.expense)
+        .any((category) => category.name == categoryName);
+  }
+
+  Future<bool> createImportCategoryRule({
+    required String keyword,
+    required String category,
+  }) async {
+    final trimmedKeyword = keyword.trim();
+    final trimmedCategory = category.trim();
+    if (trimmedKeyword.isEmpty || trimmedCategory.isEmpty) {
+      return false;
+    }
+    if (!_expenseCategoryExists(trimmedCategory)) {
+      return false;
+    }
+    if (_importCategoryRules.any((rule) => rule.keyword == trimmedKeyword)) {
+      return false;
+    }
+    _importCategoryRules.add(
+      ImportCategoryRule(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        keyword: trimmedKeyword,
+        category: trimmedCategory,
+        sortOrder: _importCategoryRules.length,
+      ),
+    );
+    await _save();
+    return true;
+  }
+
+  Future<bool> updateImportCategoryRule({
+    required String ruleId,
+    required String keyword,
+    required String category,
+  }) async {
+    final index = _importCategoryRules.indexWhere((rule) => rule.id == ruleId);
+    if (index < 0) {
+      return false;
+    }
+    final trimmedKeyword = keyword.trim();
+    final trimmedCategory = category.trim();
+    if (trimmedKeyword.isEmpty || trimmedCategory.isEmpty) {
+      return false;
+    }
+    if (!_expenseCategoryExists(trimmedCategory)) {
+      return false;
+    }
+    if (_importCategoryRules.any(
+      (rule) => rule.id != ruleId && rule.keyword == trimmedKeyword,
+    )) {
+      return false;
+    }
+    _importCategoryRules[index] = _importCategoryRules[index].copyWith(
+      keyword: trimmedKeyword,
+      category: trimmedCategory,
+    );
+    await _save();
+    return true;
+  }
+
+  Future<void> deleteImportCategoryRule(String ruleId) async {
+    final removed = _importCategoryRules.any((rule) => rule.id == ruleId);
+    if (!removed) {
+      return;
+    }
+    _importCategoryRules.removeWhere((rule) => rule.id == ruleId);
+    _normalizeImportCategoryRuleOrder();
+    await _save();
+  }
+
+  Future<void> reorderImportCategoryRules({
+    required int oldIndex,
+    required int newIndex,
+  }) async {
+    if (oldIndex == newIndex ||
+        oldIndex < 0 ||
+        oldIndex >= _importCategoryRules.length) {
+      return;
+    }
+    var insertIndex = newIndex;
+    if (insertIndex > oldIndex) {
+      insertIndex -= 1;
+    }
+    if (insertIndex < 0 || insertIndex >= _importCategoryRules.length) {
+      return;
+    }
+    final moved = _importCategoryRules.removeAt(oldIndex);
+    _importCategoryRules.insert(insertIndex, moved);
+    _normalizeImportCategoryRuleOrder();
+    await _save();
+  }
+
+  void _normalizeImportCategoryRuleOrder() {
+    for (var i = 0; i < _importCategoryRules.length; i++) {
+      _importCategoryRules[i] = _importCategoryRules[i].copyWith(sortOrder: i);
+    }
   }
 
   Future<void> reorderCategoriesForType({
@@ -921,6 +1028,7 @@ class LedgerStore extends ChangeNotifier {
         wealthYearlyTargetByLedger: Map<String, double>.from(
           _wealthYearlyTargetByLedger,
         ),
+        importCategoryRules: List<ImportCategoryRule>.from(_importCategoryRules),
       ),
     );
     _saving = false;
