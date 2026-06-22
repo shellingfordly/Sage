@@ -27,7 +27,7 @@
 - **Wealth** as a separate record type from cashflow balance: rate, maturity date, in-app reminders; Wealth Management page with principal, net deposits, targets, maturity list, and yearly trend
 - **Records** add/edit flow for expense, income, and wealth; date picker and detail bottom sheet
 - **Bank statement import** from PDF (and Alipay CSV / WeChat xlsx); review before posting; wealth detection when summary mentions fixed deposits or investments
-- **Backup** Excel/PDF import & export via platform file APIs
+- **Backup** Excel/PDF import & export via platform file APIs; global custom import category rules (keyword matching)
 - **Analysis** (standalone route): spending overview, period comparison, category shifts, monthly volatility, budget risk, anomalies, and budget suggestions
 - **Theming** palette families, system/light/dark mode, four font scale steps
 
@@ -86,7 +86,7 @@ lib/
 
 See [CHANGELOG.en.md](CHANGELOG.en.md) ([中文](CHANGELOG.md)).
 
-Current version: `1.1.0+2` (see `pubspec.yaml`).
+Current version: `1.1.1+3` (see `pubspec.yaml`).
 
 ---
 

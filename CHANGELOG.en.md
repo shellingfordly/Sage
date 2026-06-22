@@ -10,6 +10,20 @@ All notable changes to **Sage**（智账）are documented here. Format based on 
 
 ---
 
+## [1.1.1] - 2026-06-22
+
+### Added
+
+- **Custom import category rules**: global keyword-to-category mapping; longest keyword wins, user order breaks ties
+- Rules management page: create/edit/delete, drag reorder, swipe actions
+- WeChat, Alipay, and bank PDF imports apply custom rules automatically
+
+### Changed
+
+- Data backup import section: dedicated rules entry and compact two-column import buttons
+
+---
+
 ## [1.1.0] - 2026-06-17
 
 ### Added
