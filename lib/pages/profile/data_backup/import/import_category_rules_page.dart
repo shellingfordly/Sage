@@ -238,6 +238,7 @@ class _ImportCategoryRuleEditorSheetState
   late final TextEditingController _keywordController;
   late String _selectedCategory;
   bool _saving = false;
+  String? _errorMessage;
 
   List<LedgerCategory> get _expenseCategories {
     final categories = ledgerStore.categoriesForType(LedgerRecordType.expense);
@@ -251,9 +252,31 @@ class _ImportCategoryRuleEditorSheetState
   void initState() {
     super.initState();
     _keywordController = TextEditingController(text: widget.rule?.keyword ?? '');
+    _keywordController.addListener(_clearError);
     _selectedCategory = widget.rule?.category ??
         _expenseCategories.firstOrNull?.name ??
         '其他';
+  }
+
+  void _clearError() {
+    if (_errorMessage != null) {
+      setState(() => _errorMessage = null);
+    }
+  }
+
+  String? _validateInput(String keyword) {
+    if (keyword.isEmpty) {
+      return '请输入匹配关键词';
+    }
+    final duplicate = ledgerStore.importCategoryRules.any(
+      (rule) =>
+          rule.keyword == keyword &&
+          (!widget.isEditing || rule.id != widget.rule!.id),
+    );
+    if (duplicate) {
+      return '该关键词已存在，请换一个';
+    }
+    return null;
   }
 
   @override
@@ -266,9 +289,18 @@ class _ImportCategoryRuleEditorSheetState
     if (_saving) {
       return;
     }
-    setState(() => _saving = true);
 
     final keyword = _keywordController.text.trim();
+    final validationError = _validateInput(keyword);
+    if (validationError != null) {
+      setState(() => _errorMessage = validationError);
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _errorMessage = null;
+    });
     final success = widget.isEditing
         ? await ledgerStore.updateImportCategoryRule(
             ruleId: widget.rule!.id,
@@ -290,9 +322,7 @@ class _ImportCategoryRuleEditorSheetState
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('关键词重复、分类无效或内容为空')),
-    );
+    setState(() => _errorMessage = '分类无效或保存失败，请重试');
   }
 
   @override
@@ -312,10 +342,11 @@ class _ImportCategoryRuleEditorSheetState
           const SizedBox(height: 16),
           TextField(
             controller: _keywordController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: '匹配关键词',
               hintText: '关键词',
-              border: OutlineInputBorder(borderRadius: AppRadii.card),
+              errorText: _errorMessage,
+              border: const OutlineInputBorder(borderRadius: AppRadii.card),
             ),
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
@@ -325,7 +356,10 @@ class _ImportCategoryRuleEditorSheetState
             categories: _expenseCategories,
             selectedName: _selectedCategory,
             enabled: true,
-            onSelected: (value) => setState(() => _selectedCategory = value),
+            onSelected: (value) {
+              _clearError();
+              setState(() => _selectedCategory = value);
+            },
           ),
           const SizedBox(height: 20),
           FilledButton(
