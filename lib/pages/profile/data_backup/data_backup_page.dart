@@ -5,11 +5,13 @@ import 'package:ledger_app/components/time_range/export_range.dart';
 import 'package:ledger_app/components/time_range/time_range_panel.dart';
 import '../../../data/ledger_store.dart';
 import '../../../models/ledger_record.dart';
+import '../../../theme/app_colors.dart';
 import '../../../theme/app_styles.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../utils/record_import_parser.dart';
 import 'export/export_preview_page.dart';
 import 'export/export_service.dart';
+import 'import/import_category_rules_page.dart';
 import 'import/import_alipay.dart';
 import 'import/import_excel.dart';
 import 'import/import_pdf.dart';
@@ -352,6 +354,8 @@ class _ImportSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -361,44 +365,90 @@ class _ImportSection extends StatelessWidget {
         children: [
           Text('导入', style: AppTextStyles.sectionTitle(context)),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onImportExcel,
-              icon: const Icon(Icons.file_upload_outlined),
-              label: const Text('导入默认账单'),
+          Material(
+            color: colors.softFill,
+            borderRadius: AppRadii.card,
+            child: InkWell(
+              onTap: busy
+                  ? null
+                  : () {
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ImportCategoryRulesPage(),
+                        ),
+                      );
+                    },
+              borderRadius: AppRadii.card,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.tune_rounded, color: colors.primary, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '自定义规则',
+                            style: AppTextStyles.bodyStrong(context),
+                          ),
+                          Text(
+                            '按关键词匹配导入分类',
+                            style: AppTextStyles.bodyMuted(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: colors.chevron),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onImportPdf,
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text('导入银行卡账单'),
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onImportExcel,
+                  icon: const Icon(Icons.file_upload_outlined),
+                  label: const Text('默认账单'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onImportPdf,
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: const Text('银行卡'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onImportAlipay,
-              icon: const Icon(Icons.account_balance_wallet_outlined),
-              label: const Text('导入支付宝账单'),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onImportWechat,
-              icon: const Icon(Icons.chat_outlined),
-              label: const Text('导入微信账单'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onImportAlipay,
+                  icon: const Icon(Icons.account_balance_wallet_outlined),
+                  label: const Text('支付宝'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onImportWechat,
+                  icon: const Icon(Icons.chat_outlined),
+                  label: const Text('微信'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           Text(
-            'Excel / CSV 按固定列导入。PDF 支持标准五列表格流水。支付宝请导出 CSV，微信请导出 xlsx，自动跳过退款与已退款交易，解析后可审核。',
+            '支持 Excel/CSV、PDF、支付宝 CSV、微信 xlsx，解析后可审核。',
             style: AppTextStyles.bodyMuted(context),
           ),
         ],
