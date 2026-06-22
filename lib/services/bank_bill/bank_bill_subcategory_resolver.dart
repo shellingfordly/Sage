@@ -1,4 +1,6 @@
 import '../../models/ledger_record.dart';
+import '../../models/import_category_rule.dart';
+import 'import_category_rule_matcher.dart';
 
 class BankBillCategoryResolution {
   const BankBillCategoryResolution({
@@ -21,6 +23,7 @@ class BankBillSubcategoryResolver {
     String? counterparty,
     String? description,
     String? summary,
+    List<ImportCategoryRule> customRules = const [],
   }) {
     final context = _buildContext(
       platformCategory: platformCategory,
@@ -30,6 +33,19 @@ class BankBillSubcategoryResolver {
     );
     if (context.isEmpty) {
       return BankBillCategoryResolution(category: parentCategory);
+    }
+
+    if (customRules.isNotEmpty) {
+      final custom = const ImportCategoryRuleMatcher().match(
+        context: context,
+        rules: customRules,
+      );
+      if (custom != null) {
+        return BankBillCategoryResolution(
+          category: custom.category,
+          detail: '自定义规则「${custom.keyword}」→「${custom.category}」',
+        );
+      }
     }
 
     final crossParent = _matchCrossParent(

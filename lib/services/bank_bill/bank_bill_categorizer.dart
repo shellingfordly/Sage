@@ -1,3 +1,4 @@
+import '../../models/import_category_rule.dart';
 import '../../models/ledger_record.dart';
 import 'bank_bill_models.dart';
 import 'bank_bill_subcategory_resolver.dart';
@@ -16,8 +17,9 @@ class BankBillCategoryResult {
 
 /// 仅根据交易摘要的通用关键词规则分类。
 class BankBillCategorizer {
-  const BankBillCategorizer();
+  const BankBillCategorizer({this.customRules = const []});
 
+  final List<ImportCategoryRule> customRules;
   static const _subcategoryResolver = BankBillSubcategoryResolver();
 
   BankBillCategoryResult categorize(BankBillRawRow raw) {
@@ -28,6 +30,7 @@ class BankBillCategorizer {
       parentCategory: base.category,
       type: base.type,
       summary: summary,
+      customRules: customRules,
     );
     if (refined.detail.isEmpty) {
       return base;

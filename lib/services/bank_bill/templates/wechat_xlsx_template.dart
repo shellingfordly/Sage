@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../models/import_category_rule.dart';
 import '../../../models/ledger_record.dart';
 import '../../../utils/record_import_parser.dart';
 import '../bank_bill_models.dart';
@@ -46,11 +47,17 @@ class WeChatXlsxBillTemplate {
     return canParseRows(readWeChatXlsxRows(bytes));
   }
 
-  BankBillParseResult parseBytes(Uint8List bytes) {
-    return parseRows(readWeChatXlsxRows(bytes));
+  BankBillParseResult parseBytes(
+    Uint8List bytes, {
+    List<ImportCategoryRule> customRules = const [],
+  }) {
+    return parseRows(readWeChatXlsxRows(bytes), customRules: customRules);
   }
 
-  BankBillParseResult parseRows(List<List<String>> rows) {
+  BankBillParseResult parseRows(
+    List<List<String>> rows, {
+    List<ImportCategoryRule> customRules = const [],
+  }) {
     if (!canParseRows(rows)) {
       return BankBillParseResult(
         templateId: id,
@@ -111,7 +118,7 @@ class WeChatXlsxBillTemplate {
       );
     }
 
-    final records = _mergeRefundPairs(pendingRows);
+    final records = _mergeRefundPairs(pendingRows, customRules: customRules);
 
     if (records.isEmpty) {
       return BankBillParseResult(
@@ -180,7 +187,10 @@ class WeChatXlsxBillTemplate {
     );
   }
 
-  List<BankBillParsedRecord> _mergeRefundPairs(List<_WeChatRowContext> rows) {
+  List<BankBillParsedRecord> _mergeRefundPairs(
+    List<_WeChatRowContext> rows, {
+    List<ImportCategoryRule> customRules = const [],
+  }) {
     final consumed = <int>{};
     final mergedByExpenseIndex = <int, BankBillParsedRecord>{};
 
@@ -235,6 +245,7 @@ class WeChatXlsxBillTemplate {
         expense: rows[expenseIndex],
         paidAmount: rows[expenseIndex].absoluteAmount,
         refundAmount: refundAmount,
+        customRules: customRules,
       );
     }
 
@@ -247,7 +258,13 @@ class WeChatXlsxBillTemplate {
         }
         continue;
       }
-      records.add(_buildRecord(rows[i].raw, rowIndex: rows[i].rowIndex));
+      records.add(
+        _buildRecord(
+          rows[i].raw,
+          rowIndex: rows[i].rowIndex,
+          customRules: customRules,
+        ),
+      );
     }
     return records;
   }
@@ -256,6 +273,7 @@ class WeChatXlsxBillTemplate {
     required _WeChatRowContext expense,
     required double paidAmount,
     required double refundAmount,
+    List<ImportCategoryRule> customRules = const [],
   }) {
     final netAmount = paidAmount - refundAmount;
     final wechatType = expense.type;
@@ -267,6 +285,7 @@ class WeChatXlsxBillTemplate {
       counterparty: expense.counterparty,
       description: expense.columns.elementAtOrNull(_columnProduct),
       summary: expense.raw.transactionSummary,
+      customRules: customRules,
     );
     final recordSource = expense.raw.importSource?.trim() ?? '';
     final paidText = _formatWeChatAmount(paidAmount);
@@ -327,7 +346,11 @@ class WeChatXlsxBillTemplate {
     return fixed;
   }
 
-  BankBillParsedRecord _buildRecord(BankBillRawRow raw, {required int rowIndex}) {
+  BankBillParsedRecord _buildRecord(
+    BankBillRawRow raw, {
+    required int rowIndex,
+    List<ImportCategoryRule> customRules = const [],
+  }) {
     final columns = raw.sourceLine?.split(',') ?? const <String>[];
     final wechatType = columns.elementAtOrNull(_columnType)?.trim() ?? '';
     final parentCategory = _mapCategory(wechatType, raw.amount >= 0);
@@ -338,6 +361,7 @@ class WeChatXlsxBillTemplate {
       counterparty: columns.elementAtOrNull(_columnCounterparty),
       description: columns.elementAtOrNull(_columnProduct),
       summary: raw.transactionSummary,
+      customRules: customRules,
     );
     final recordSource = raw.importSource?.trim() ?? '';
 

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../models/import_category_rule.dart';
 import '../../../models/ledger_record.dart';
 import '../alipay_csv_parser.dart';
 import '../bank_bill_models.dart';
@@ -64,11 +65,17 @@ class AlipayCsvBillTemplate {
     return canParse(decodeAlipayCsvText(bytes));
   }
 
-  BankBillParseResult parseBytes(Uint8List bytes) {
-    return parse(decodeAlipayCsvText(bytes));
+  BankBillParseResult parseBytes(
+    Uint8List bytes, {
+    List<ImportCategoryRule> customRules = const [],
+  }) {
+    return parse(decodeAlipayCsvText(bytes), customRules: customRules);
   }
 
-  BankBillParseResult parse(String content) {
+  BankBillParseResult parse(
+    String content, {
+    List<ImportCategoryRule> customRules = const [],
+  }) {
     if (!canParse(content)) {
       return BankBillParseResult(
         templateId: id,
@@ -129,7 +136,7 @@ class AlipayCsvBillTemplate {
         continue;
       }
 
-      records.add(_buildRecord(raw, rowIndex: i));
+      records.add(_buildRecord(raw, rowIndex: i, customRules: customRules));
     }
 
     if (records.isEmpty) {
@@ -200,7 +207,11 @@ class AlipayCsvBillTemplate {
     );
   }
 
-  BankBillParsedRecord _buildRecord(BankBillRawRow raw, {required int rowIndex}) {
+  BankBillParsedRecord _buildRecord(
+    BankBillRawRow raw, {
+    required int rowIndex,
+    List<ImportCategoryRule> customRules = const [],
+  }) {
     final columns = parseAlipayCsvLine(raw.sourceLine ?? '');
     final alipayCategory = columns.elementAtOrNull(_columnCategory) ?? '';
     final counterparty = columns.elementAtOrNull(_columnCounterparty) ?? '';
@@ -213,6 +224,7 @@ class AlipayCsvBillTemplate {
       counterparty: counterparty,
       description: description,
       summary: raw.transactionSummary,
+      customRules: customRules,
     );
     final notes = _buildNotes(alipayCategory: alipayCategory);
     final recordSource = raw.importSource?.trim() ?? '';

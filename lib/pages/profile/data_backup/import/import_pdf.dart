@@ -28,6 +28,7 @@ class ImportPdfService {
       final parsed = await _bankBillImportService.parsePdf(
         bytes,
         sourceName: file.name,
+        customRules: ledgerStore.importCategoryRules,
       );
 
       if (parsed.isCompleteFailure && parsed.skippedRows.isEmpty) {

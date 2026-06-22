@@ -1,10 +1,13 @@
 import 'dart:typed_data';
 
 import 'bank_bill_models.dart';
+import '../../models/import_category_rule.dart';
 import 'bank_bill_pdf_extractor.dart';
 import 'bank_bill_template.dart';
 import 'templates/alipay_csv_template.dart';
+import 'templates/standard_table_template.dart';
 import 'templates/wechat_xlsx_template.dart';
+import 'bank_bill_categorizer.dart';
 
 class BankBillImportService {
   const BankBillImportService({
@@ -16,7 +19,7 @@ class BankBillImportService {
   final AlipayCsvBillTemplate _alipayCsvTemplate;
   final WeChatXlsxBillTemplate _wechatXlsxTemplate;
 
-  BankBillParseResult parseCsv(Uint8List bytes) {
+  BankBillParseResult parseCsv(Uint8List bytes, {List<ImportCategoryRule> customRules = const []}) {
     try {
       if (!_alipayCsvTemplate.canParseBytes(bytes)) {
         return const BankBillParseResult(
@@ -26,7 +29,7 @@ class BankBillImportService {
         );
       }
 
-      final result = _alipayCsvTemplate.parseBytes(bytes);
+      final result = _alipayCsvTemplate.parseBytes(bytes, customRules: customRules);
       if (result.hasRecords) {
         return result;
       }
@@ -48,7 +51,10 @@ class BankBillImportService {
     }
   }
 
-  BankBillParseResult parseWechatXlsx(Uint8List bytes) {
+  BankBillParseResult parseWechatXlsx(
+    Uint8List bytes, {
+    List<ImportCategoryRule> customRules = const [],
+  }) {
     try {
       if (!_wechatXlsxTemplate.canParseBytes(bytes)) {
         return const BankBillParseResult(
@@ -58,7 +64,7 @@ class BankBillImportService {
         );
       }
 
-      final result = _wechatXlsxTemplate.parseBytes(bytes);
+      final result = _wechatXlsxTemplate.parseBytes(bytes, customRules: customRules);
       if (result.hasRecords) {
         return result;
       }
@@ -83,6 +89,7 @@ class BankBillImportService {
   Future<BankBillParseResult> parsePdf(
     Uint8List bytes, {
     String? sourceName,
+    List<ImportCategoryRule> customRules = const [],
   }) async {
     try {
       final extractedText = await extractTextFromPdf(bytes, sourceName: sourceName);
@@ -94,7 +101,9 @@ class BankBillImportService {
         );
       }
 
-      final template = BankBillTemplateRegistry.defaultTemplate;
+      final template = StandardTableBankBillTemplate(
+        categorizer: BankBillCategorizer(customRules: customRules),
+      );
       final result = template.parse(extractedText);
       if (result.hasRecords) {
         return result;

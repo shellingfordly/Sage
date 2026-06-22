@@ -25,7 +25,10 @@ class ImportWechatService {
 
       final file = result.files.single;
       final bytes = await readPlatformFileBytes(file);
-      final parsed = _bankBillImportService.parseWechatXlsx(bytes);
+      final parsed = _bankBillImportService.parseWechatXlsx(
+        bytes,
+        customRules: ledgerStore.importCategoryRules,
+      );
 
       if (parsed.isCompleteFailure && parsed.skippedRows.isEmpty) {
         return ImportWechatFailure(parsed.fatalError ?? '微信账单解析失败');

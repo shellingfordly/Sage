@@ -25,7 +25,10 @@ class ImportAlipayService {
 
       final file = result.files.single;
       final bytes = await readPlatformFileBytes(file);
-      final parsed = _bankBillImportService.parseCsv(bytes);
+      final parsed = _bankBillImportService.parseCsv(
+        bytes,
+        customRules: ledgerStore.importCategoryRules,
+      );
 
       if (parsed.isCompleteFailure && parsed.skippedRows.isEmpty) {
         return ImportAlipayFailure(parsed.fatalError ?? '支付宝账单解析失败');
