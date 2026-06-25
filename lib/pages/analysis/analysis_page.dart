@@ -107,11 +107,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   void _onRangeChanged(ExportRange range) {
     if (range == ExportRange.custom && _customRange == null) {
-      final now = DateTime.now();
-      _customRange = DateTimeRange(
-        start: DateTime(now.year, now.month, 1),
-        end: DateTime(now.year, now.month, now.day),
-      );
+      _customRange = recordDateBounds(ledgerStore.records);
     }
     _applyFilters(
       _filters.copyWith(range: range, customRange: _customRange),
@@ -119,17 +115,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
   }
 
   Future<void> _pickCustomRange() async {
-    final now = DateTime.now();
-    final initialRange = _customRange ??
-        DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: DateTime(now.year, now.month, now.day),
-        );
-    final picked = await pickCustomDateRange(
+    final picked = await pickRecordBoundedCustomDateRange(
       context,
-      initialStart: initialRange.start,
-      initialEnd: initialRange.end,
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
+      records: ledgerStore.records,
+      currentRange: _customRange,
       helpText: '选择查询时间范围',
     );
     if (picked == null) {

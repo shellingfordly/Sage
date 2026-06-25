@@ -23,6 +23,19 @@ const defaultExportRangePresets = [
 
 const exportPreviewColumns = ['日期', '类型', '分类', '名称', '金额', '备注', '方式'];
 
+const wealthExportPreviewColumns = [
+  '日期',
+  '类型',
+  '分类',
+  '名称',
+  '金额',
+  '备注',
+  '方式',
+  '年利率(%)',
+  '到期日',
+  '到期提醒',
+];
+
 String exportRangeLabel(ExportRange range) {
   return switch (range) {
     ExportRange.custom => '自定义',
@@ -39,6 +52,49 @@ class ExportRangeBounds {
 
   final DateTime start;
   final DateTime end;
+}
+
+/// 当前账本记录的最早与最晚日期（按自然日）。
+DateTimeRange? recordDateBounds(Iterable<LedgerRecord> records) {
+  DateTime? earliest;
+  DateTime? latest;
+  for (final record in records) {
+    final day = DateTime(
+      record.createdAt.year,
+      record.createdAt.month,
+      record.createdAt.day,
+    );
+    if (earliest == null || day.isBefore(earliest)) {
+      earliest = day;
+    }
+    if (latest == null || day.isAfter(latest)) {
+      latest = day;
+    }
+  }
+  if (earliest == null || latest == null) {
+    return null;
+  }
+  return DateTimeRange(start: earliest, end: latest);
+}
+
+DateTimeRange clampDateRange(DateTimeRange range, DateTimeRange bounds) {
+  DateTime clampDay(DateTime value) {
+    final day = DateTime(value.year, value.month, value.day);
+    if (day.isBefore(bounds.start)) {
+      return bounds.start;
+    }
+    if (day.isAfter(bounds.end)) {
+      return bounds.end;
+    }
+    return day;
+  }
+
+  var start = clampDay(range.start);
+  var end = clampDay(range.end);
+  if (start.isAfter(end)) {
+    return bounds;
+  }
+  return DateTimeRange(start: start, end: end);
 }
 
 ExportRangeBounds? exportRangeBounds({

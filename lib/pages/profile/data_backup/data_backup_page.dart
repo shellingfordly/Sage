@@ -65,11 +65,7 @@ class _DataBackupPageState extends State<DataBackupPage> {
                   setState(() {
                     _range = next;
                     if (next == ExportRange.custom && _customRange == null) {
-                      final now = DateTime.now();
-                      _customRange = DateTimeRange(
-                        start: DateTime(now.year, now.month, 1),
-                        end: DateTime(now.year, now.month, now.day),
-                      );
+                      _customRange = recordDateBounds(ledgerStore.records);
                     }
                   });
                 },
@@ -94,20 +90,17 @@ class _DataBackupPageState extends State<DataBackupPage> {
   }
 
   Future<void> _pickCustomRange() async {
-    final now = DateTime.now();
-    final initialRange = _customRange ??
-        DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: DateTime(now.year, now.month, now.day),
-        );
-    final picked = await pickCustomDateRange(
+    final picked = await pickRecordBoundedCustomDateRange(
       context,
-      initialStart: initialRange.start,
-      initialEnd: initialRange.end,
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
+      records: ledgerStore.records,
+      currentRange: _customRange,
       helpText: '选择导出时间范围',
     );
     if (picked == null) {
+      final bounds = recordDateBounds(ledgerStore.records);
+      if (bounds == null && mounted) {
+        _showMessage('当前没有账单，无法选择自定义范围');
+      }
       return;
     }
     setState(() => _customRange = picked);
@@ -119,14 +112,39 @@ class _DataBackupPageState extends State<DataBackupPage> {
       _showMessage('当前范围没有可预览的数据');
       return;
     }
+    final cashflowRecords =
+        records.where((record) => !record.isWealth).toList();
+    final wealthRecords = records.where((record) => record.isWealth).toList();
+    final previewRecords =
+        cashflowRecords.isNotEmpty ? cashflowRecords : wealthRecords;
+    final previewColumns = cashflowRecords.isNotEmpty
+        ? exportPreviewColumns
+        : wealthExportPreviewColumns;
+    final subtitleParts = <String>[
+      exportRangeLabel(_range),
+      if (cashflowRecords.isNotEmpty) '收支 ${cashflowRecords.length} 条',
+      if (wealthRecords.isNotEmpty) '理财 ${wealthRecords.length} 条（wealth 工作表）',
+    ];
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (context) => ExportPreviewPage(
           title: '导出数据预览',
-          subtitle: '${exportRangeLabel(_range)}  ·  共 ${records.length} 条',
-          columns: exportPreviewColumns,
-          rows: records
-              .map((record) => ExportPreviewRow(cells: recordToPreviewCells(record)))
+          subtitle: subtitleParts.join('  ·  '),
+          columns: previewColumns,
+          rows: previewRecords
+              .map(
+                (record) => ExportPreviewRow(
+                  cells: record.isWealth
+                      ? wealthRecordToPreviewCells(
+                          record,
+                          categoryLabel: ledgerStore.categoryLabelForRecord(record),
+                        )
+                      : recordToPreviewCells(
+                          record,
+                          categoryLabel: ledgerStore.categoryLabelForRecord(record),
+                        ),
+                ),
+              )
               .toList(),
         ),
       ),
