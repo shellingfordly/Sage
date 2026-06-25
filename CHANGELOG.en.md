@@ -10,6 +10,24 @@ All notable changes to **Sage**（智账）are documented here. Format based on 
 
 ---
 
+## [1.1.2] - 2026-06-25
+
+### Added
+
+- **Wealth export sheet**: separate `wealth` worksheet in Excel with annual rate, maturity date, and reminder
+- Export categories as `Parent·Child` labels; import restores subcategory structure
+
+### Changed
+
+- Custom date range in export, statistics, and charts defaults to earliest/latest bill dates with bounded picker
+
+### Fixed
+
+- Removed duplicate drag handle on category management rows
+- Inline validation errors in import rule editor sheet
+
+---
+
 ## [1.1.1] - 2026-06-22
 
 ### Added

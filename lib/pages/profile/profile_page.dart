@@ -310,7 +310,7 @@ class _AppPanel extends StatelessWidget {
           _SettingTile(
             icon: Icons.info_outline,
             title: '关于应用',
-            subtitle: '智账 Sage 1.1.1',
+            subtitle: '智账 Sage 1.1.2',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
