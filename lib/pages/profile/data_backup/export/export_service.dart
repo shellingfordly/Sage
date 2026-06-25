@@ -23,7 +23,10 @@ class ExportService {
     }
 
     try {
-      final bytes = _buildExcelBytes(records);
+      final bytes = buildExcelBytes(
+        records,
+        categoryLabelBuilder: ledgerStore.categoryLabelForRecord,
+      );
       final suggestedName = buildExportFileName(
         range: range,
         customRange: customRange,
@@ -56,29 +59,23 @@ class ExportService {
     }
   }
 
-  Uint8List _buildExcelBytes(List<LedgerRecord> records) {
+  Uint8List buildExcelBytes(
+    List<LedgerRecord> records, {
+    String Function(LedgerRecord record)? categoryLabelBuilder,
+  }) {
+    final labelFor = categoryLabelBuilder ?? _defaultCategoryLabel;
     final excel = xl.Excel.createExcel();
-    final sheet = excel['records'];
-    sheet.appendRow([
-      xl.TextCellValue('日期'),
-      xl.TextCellValue('类型'),
-      xl.TextCellValue('分类'),
-      xl.TextCellValue('名称'),
-      xl.TextCellValue('金额'),
-      xl.TextCellValue('备注'),
-      xl.TextCellValue('方式'),
-    ]);
+    final defaultSheet = excel.getDefaultSheet();
+    if (defaultSheet != null && defaultSheet != 'records') {
+      excel.rename(defaultSheet, 'records');
+    }
 
-    for (final record in records) {
-      sheet.appendRow([
-        xl.TextCellValue(formatImportDateTime(record.createdAt)),
-        xl.TextCellValue(recordTypeLabel(record.type)),
-        xl.TextCellValue(ledgerStore.categoryLabelForRecord(record)),
-        xl.TextCellValue(record.title),
-        xl.DoubleCellValue(record.amount),
-        xl.TextCellValue(record.notes),
-        xl.TextCellValue(record.source),
-      ]);
+    final cashflowRecords = records.where((record) => !record.isWealth).toList();
+    final wealthRecords = records.where((record) => record.isWealth).toList();
+
+    _appendCashflowSheet(excel['records'], cashflowRecords, labelFor);
+    if (wealthRecords.isNotEmpty) {
+      _appendWealthSheet(excel['wealth'], wealthRecords, labelFor);
     }
 
     final encoded = excel.encode();
@@ -86,6 +83,56 @@ class ExportService {
       throw StateError('无法生成文件');
     }
     return Uint8List.fromList(encoded);
+  }
+
+  String _defaultCategoryLabel(LedgerRecord record) => record.category;
+
+  void _appendCashflowSheet(
+    xl.Sheet sheet,
+    List<LedgerRecord> records,
+    String Function(LedgerRecord record) categoryLabelFor,
+  ) {
+    sheet.appendRow(exportPreviewColumns.map(xl.TextCellValue.new).toList());
+
+    for (final record in records) {
+      sheet.appendRow([
+        xl.TextCellValue(formatImportDateTime(record.createdAt)),
+        xl.TextCellValue(recordTypeLabel(record.type)),
+        xl.TextCellValue(categoryLabelFor(record)),
+        xl.TextCellValue(record.title),
+        xl.DoubleCellValue(record.amount),
+        xl.TextCellValue(record.notes),
+        xl.TextCellValue(record.source),
+      ]);
+    }
+  }
+
+  void _appendWealthSheet(
+    xl.Sheet sheet,
+    List<LedgerRecord> records,
+    String Function(LedgerRecord record) categoryLabelFor,
+  ) {
+    sheet.appendRow(wealthExportColumns.map(xl.TextCellValue.new).toList());
+
+    for (final record in records) {
+      final meta = record.wealthMeta;
+      sheet.appendRow([
+        xl.TextCellValue(formatImportDateTime(record.createdAt)),
+        xl.TextCellValue(recordTypeLabel(record.type)),
+        xl.TextCellValue(categoryLabelFor(record)),
+        xl.TextCellValue(record.title),
+        xl.DoubleCellValue(record.amount),
+        xl.TextCellValue(record.notes),
+        xl.TextCellValue(record.source),
+        meta.annualRate == null
+            ? xl.TextCellValue('')
+            : xl.DoubleCellValue(meta.annualRate!),
+        xl.TextCellValue(
+          meta.maturityDate == null ? '' : formatImportDateOnly(meta.maturityDate!),
+        ),
+        xl.TextCellValue(formatImportYesNo(meta.remindOnMaturity)),
+      ]);
+    }
   }
 }
 

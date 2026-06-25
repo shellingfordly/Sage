@@ -1,5 +1,7 @@
 import '../models/import_parse_result.dart';
+import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
+import '../models/wealth_meta.dart';
 
 LedgerRecordType? parseImportRecordType(String text) {
   final normalized = text.trim().toLowerCase();
@@ -101,6 +103,7 @@ RecordRowParseResult parseImportRecordColumns({
   required String titleText,
   required String amountText,
   String notesText = '',
+  String sourceText = '',
 }) {
   final title = titleText.trim();
   final category = categoryText.trim();
@@ -108,7 +111,8 @@ RecordRowParseResult parseImportRecordColumns({
   final dateRaw = dateText.trim();
   final amountRaw = amountText.trim();
   final notes = notesText.trim();
-  if ([title, category, typeRaw, dateRaw, amountRaw, notes]
+  final source = sourceText.trim();
+  if ([title, category, typeRaw, dateRaw, amountRaw, notes, source]
       .every((item) => item.isEmpty)) {
     return const RecordRowParseResult.empty();
   }
@@ -140,6 +144,147 @@ RecordRowParseResult parseImportRecordColumns({
       category: category,
       createdAt: createdAt,
       notes: notes,
+      source: source,
+    ),
+  );
+}
+
+const wealthExportColumns = [
+  '日期',
+  '类型',
+  '分类',
+  '名称',
+  '金额',
+  '备注',
+  '方式',
+  '年利率(%)',
+  '到期日',
+  '到期提醒',
+];
+
+bool isWealthSheetName(String name) {
+  final normalized = name.trim().toLowerCase();
+  return normalized == 'wealth' || normalized == '理财';
+}
+
+bool isWealthImportHeader(Iterable<String> headers) {
+  return headers.any(
+    (header) => header.contains('年利率') || header.contains('到期日'),
+  );
+}
+
+double? parseOptionalImportRate(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) {
+    return null;
+  }
+  return parseImportAmount(text);
+}
+
+bool? parseImportYesNo(String raw) {
+  final normalized = raw.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return null;
+  }
+  if (const {'是', 'yes', 'true', '1', 'y'}.contains(normalized)) {
+    return true;
+  }
+  if (const {'否', 'no', 'false', '0', 'n'}.contains(normalized)) {
+    return false;
+  }
+  return null;
+}
+
+String formatImportDateOnly(DateTime dateTime) {
+  return '${dateTime.year.toString().padLeft(4, '0')}-'
+      '${dateTime.month.toString().padLeft(2, '0')}-'
+      '${dateTime.day.toString().padLeft(2, '0')}';
+}
+
+String formatImportYesNo(bool value) {
+  return value ? '是' : '否';
+}
+
+class ImportCategoryParts {
+  const ImportCategoryParts({
+    required this.leafName,
+    this.parentName,
+  });
+
+  final String? parentName;
+  final String leafName;
+
+  bool get hasParent => parentName != null && parentName!.isNotEmpty;
+}
+
+ImportCategoryParts parseImportCategoryText(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) {
+    return const ImportCategoryParts(leafName: '其他');
+  }
+
+  final separatorIndex = text.indexOf('·');
+  if (separatorIndex <= 0 || separatorIndex >= text.length - 1) {
+    return ImportCategoryParts(leafName: text);
+  }
+
+  return ImportCategoryParts(
+    parentName: text.substring(0, separatorIndex).trim(),
+    leafName: text.substring(separatorIndex + 1).trim(),
+  );
+}
+
+String exportCategoryLabelForRecord(
+  LedgerRecord record,
+  Iterable<LedgerCategory> categories,
+) {
+  return resolveCategoryLabel(
+    name: record.category,
+    type: record.type,
+    ledgerCategories: categories,
+  );
+}
+
+RecordRowParseResult parseWealthImportRecordColumns({
+  required int rowNumber,
+  required String dateText,
+  required String typeText,
+  required String categoryText,
+  required String titleText,
+  required String amountText,
+  String notesText = '',
+  String sourceText = '',
+  String annualRateText = '',
+  String maturityDateText = '',
+  String remindText = '',
+}) {
+  final base = parseImportRecordColumns(
+    rowNumber: rowNumber,
+    dateText: dateText,
+    typeText: typeText.isEmpty ? '理财' : typeText,
+    categoryText: categoryText,
+    titleText: titleText,
+    amountText: amountText,
+    notesText: notesText,
+  );
+  if (base.record == null) {
+    return base;
+  }
+
+  final maturity = parseImportDate(maturityDateText.trim());
+  final remind = parseImportYesNo(remindText) ?? false;
+
+  return RecordRowParseResult.record(
+    base.record!.copyWith(
+      type: LedgerRecordType.wealth,
+      source: sourceText.trim(),
+      wealthMeta: WealthMeta(
+        annualRate: parseOptionalImportRate(annualRateText),
+        maturityDate: maturity == null
+            ? null
+            : DateTime(maturity.year, maturity.month, maturity.day),
+        remindOnMaturity: remind,
+      ),
     ),
   );
 }
@@ -148,15 +293,37 @@ String recordTypeLabel(LedgerRecordType type) {
   return ledgerRecordTypeLabel(type);
 }
 
-List<String> recordToPreviewCells(LedgerRecord record) {
+List<String> recordToPreviewCells(
+  LedgerRecord record, {
+  String? categoryLabel,
+}) {
   return [
     formatImportDateTime(record.createdAt),
     recordTypeLabel(record.type),
-    record.category,
+    categoryLabel ?? record.category,
     record.title,
     record.amount.toStringAsFixed(2),
     record.notes,
     record.source,
+  ];
+}
+
+List<String> wealthRecordToPreviewCells(
+  LedgerRecord record, {
+  String? categoryLabel,
+}) {
+  final meta = record.wealthMeta;
+  return [
+    formatImportDateTime(record.createdAt),
+    recordTypeLabel(record.type),
+    categoryLabel ?? record.category,
+    record.title,
+    record.amount.toStringAsFixed(2),
+    record.notes,
+    record.source,
+    meta.annualRate?.toStringAsFixed(2) ?? '',
+    meta.maturityDate == null ? '' : formatImportDateOnly(meta.maturityDate!),
+    formatImportYesNo(meta.remindOnMaturity),
   ];
 }
 

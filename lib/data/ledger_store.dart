@@ -6,6 +6,7 @@ import '../models/ledger_category.dart';
 import '../models/ledger_record.dart';
 import '../models/wealth_meta.dart';
 import '../services/wealth/wealth_analyzer.dart';
+import '../utils/record_import_parser.dart';
 import 'ledger_repository.dart';
 
 final ledgerStore = LedgerStore(LedgerRepository());
@@ -273,6 +274,57 @@ class LedgerStore extends ChangeNotifier {
     await _save();
   }
 
+  void _ensureImportCategoryExists({
+    required List<LedgerCategory> categories,
+    required LedgerRecordType type,
+    required ImportCategoryParts parts,
+    required int index,
+  }) {
+    final leafName = parts.leafName;
+    if (categories.any(
+      (category) => category.type == type && category.name == leafName,
+    )) {
+      return;
+    }
+
+    if (parts.hasParent) {
+      final parentName = parts.parentName!;
+      var parent = findCategoryByName(
+        categories,
+        name: parentName,
+        type: type,
+      );
+      if (parent == null || parent.parentId != null) {
+        parent = LedgerCategory(
+          id: '${type.name}-parent-${DateTime.now().microsecondsSinceEpoch}-$index',
+          name: parentName,
+          type: type,
+          iconKey: iconKeyForCategoryName(parentName, type),
+        );
+        categories.add(parent);
+      }
+      categories.add(
+        LedgerCategory(
+          id: '${type.name}-sub-${DateTime.now().microsecondsSinceEpoch}-$index',
+          name: leafName,
+          type: type,
+          parentId: parent.id,
+          iconKey: iconKeyForCategoryName(leafName, type),
+        ),
+      );
+      return;
+    }
+
+    categories.add(
+      LedgerCategory(
+        id: '${type.name}-${DateTime.now().microsecondsSinceEpoch}-$index',
+        name: leafName,
+        type: type,
+        iconKey: iconKeyForCategoryName(leafName, type),
+      ),
+    );
+  }
+
   Future<int> importRecords(
     List<LedgerRecord> importedRecords, {
     String? ledgerId,
@@ -298,9 +350,10 @@ class LedgerStore extends ChangeNotifier {
     for (var index = 0; index < importedRecords.length; index++) {
       final source = importedRecords[index];
       final title = source.title.trim();
-      final categoryName = source.category.trim().isEmpty
-          ? '其他'
-          : source.category.trim();
+      final categoryParts = parseImportCategoryText(
+        source.category.trim().isEmpty ? '其他' : source.category.trim(),
+      );
+      final categoryName = categoryParts.leafName;
       if (title.isEmpty) {
         continue;
       }
@@ -342,24 +395,12 @@ class LedgerStore extends ChangeNotifier {
       existingFingerprints.add(fingerprint);
       addedCount++;
 
-      final hasCategory = categories.any(
-        (category) =>
-            category.type == normalized.type &&
-            category.name == normalized.category,
+      _ensureImportCategoryExists(
+        categories: categories,
+        type: normalized.type,
+        parts: categoryParts,
+        index: index,
       );
-      if (!hasCategory) {
-        categories.add(
-          LedgerCategory(
-            id: '${normalized.type.name}-${DateTime.now().microsecondsSinceEpoch}-$index',
-            name: normalized.category,
-            type: normalized.type,
-            iconKey: iconKeyForCategoryName(
-              normalized.category,
-              normalized.type,
-            ),
-          ),
-        );
-      }
     }
 
     if (addedCount == 0) {

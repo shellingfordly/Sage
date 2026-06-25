@@ -14,27 +14,13 @@ ImportParseResult parseExcelRecords(Uint8List bytes) {
     final excel = xl.Excel.decodeBytes(bytes);
     final records = <LedgerRecord>[];
     final failedRows = <ImportFailure>[];
-    for (final table in excel.tables.values) {
-      if (table.rows.isEmpty) {
-        continue;
-      }
-      for (var rowIndex = 1; rowIndex < table.rows.length; rowIndex++) {
-        final row = table.rows[rowIndex];
-        final parsed = _parseRecordCells(
-          rowNumber: rowIndex + 1,
-          dateCell: row.elementAtOrNull(0),
-          typeCell: row.elementAtOrNull(1),
-          categoryCell: row.elementAtOrNull(2),
-          titleCell: row.elementAtOrNull(3),
-          amountCell: row.elementAtOrNull(4),
-          notesCell: row.elementAtOrNull(5),
-        );
-        if (parsed.record != null) {
-          records.add(parsed.record!);
-        } else if (parsed.failure != null) {
-          failedRows.add(parsed.failure!);
-        }
-      }
+    for (final entry in excel.tables.entries) {
+      _parseExcelTable(
+        sheetName: entry.key,
+        table: entry.value,
+        records: records,
+        failedRows: failedRows,
+      );
     }
     return ImportParseResult(records: records, failedRows: failedRows);
   } catch (error) {
@@ -47,6 +33,56 @@ ImportParseResult parseExcelRecords(Uint8List bytes) {
       failedRows: const [],
       fatalError: 'Excel 解析失败，请确认文件未损坏并使用 xlsx 格式：$error',
     );
+  }
+}
+
+void _parseExcelTable({
+  required String sheetName,
+  required xl.Sheet table,
+  required List<LedgerRecord> records,
+  required List<ImportFailure> failedRows,
+}) {
+  if (table.rows.isEmpty) {
+    return;
+  }
+
+  final headerCells = table.rows.first
+      .map((cell) => _cellString(cell).trim())
+      .toList();
+  final isWealthSheet =
+      isWealthSheetName(sheetName) || isWealthImportHeader(headerCells);
+
+  for (var rowIndex = 1; rowIndex < table.rows.length; rowIndex++) {
+    final row = table.rows[rowIndex];
+    final parsed = isWealthSheet
+        ? _parseWealthRecordCells(
+            rowNumber: rowIndex + 1,
+            dateCell: row.elementAtOrNull(0),
+            typeCell: row.elementAtOrNull(1),
+            categoryCell: row.elementAtOrNull(2),
+            titleCell: row.elementAtOrNull(3),
+            amountCell: row.elementAtOrNull(4),
+            notesCell: row.elementAtOrNull(5),
+            sourceCell: row.elementAtOrNull(6),
+            annualRateCell: row.elementAtOrNull(7),
+            maturityDateCell: row.elementAtOrNull(8),
+            remindCell: row.elementAtOrNull(9),
+          )
+        : _parseRecordCells(
+            rowNumber: rowIndex + 1,
+            dateCell: row.elementAtOrNull(0),
+            typeCell: row.elementAtOrNull(1),
+            categoryCell: row.elementAtOrNull(2),
+            titleCell: row.elementAtOrNull(3),
+            amountCell: row.elementAtOrNull(4),
+            notesCell: row.elementAtOrNull(5),
+            sourceCell: row.elementAtOrNull(6),
+          );
+    if (parsed.record != null) {
+      records.add(parsed.record!);
+    } else if (parsed.failure != null) {
+      failedRows.add(parsed.failure!);
+    }
   }
 }
 
@@ -99,12 +135,30 @@ ImportParseResult? _parseXlsxByXml(Uint8List bytes) {
     }
 
     final sharedStrings = _readSharedStrings(archive);
+    final sheetNames = _readWorksheetNames(archive);
     final records = <LedgerRecord>[];
     final failedRows = <ImportFailure>[];
-    for (final worksheetFile in worksheetFiles) {
+    for (var sheetIndex = 0; sheetIndex < worksheetFiles.length; sheetIndex++) {
+      final worksheetFile = worksheetFiles[sheetIndex];
+      final sheetName = sheetNames.elementAtOrNull(sheetIndex) ?? '';
       final sheetXml = utf8.decode(worksheetFile.content as List<int>);
       final document = XmlDocument.parse(sheetXml);
       final rows = document.findAllElements('row').toList();
+      if (rows.isEmpty) {
+        continue;
+      }
+
+      final headerColumns = <int, String>{};
+      final headerRow = rows.first;
+      for (final cell in headerRow.findElements('c')) {
+        final ref = cell.getAttribute('r') ?? '';
+        final col = _columnIndexFromRef(ref);
+        if (col != null) {
+          headerColumns[col] = _cellTextFromXml(cell, sharedStrings).trim();
+        }
+      }
+      final isWealthSheet =
+          isWealthSheetName(sheetName) || isWealthImportHeader(headerColumns.values);
 
       for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
         final row = rows[rowIndex];
@@ -122,15 +176,30 @@ ImportParseResult? _parseXlsxByXml(Uint8List bytes) {
           currentCol = col + 1;
         }
 
-        final parsed = parseImportRecordColumns(
-          rowNumber: rowNumber,
-          dateText: columns[0] ?? '',
-          typeText: columns[1] ?? '',
-          categoryText: columns[2] ?? '',
-          titleText: columns[3] ?? '',
-          amountText: columns[4] ?? '',
-          notesText: columns[5] ?? '',
-        );
+        final parsed = isWealthSheet
+            ? parseWealthImportRecordColumns(
+                rowNumber: rowNumber,
+                dateText: columns[0] ?? '',
+                typeText: columns[1] ?? '',
+                categoryText: columns[2] ?? '',
+                titleText: columns[3] ?? '',
+                amountText: columns[4] ?? '',
+                notesText: columns[5] ?? '',
+                sourceText: columns[6] ?? '',
+                annualRateText: columns[7] ?? '',
+                maturityDateText: columns[8] ?? '',
+                remindText: columns[9] ?? '',
+              )
+            : parseImportRecordColumns(
+                rowNumber: rowNumber,
+                dateText: columns[0] ?? '',
+                typeText: columns[1] ?? '',
+                categoryText: columns[2] ?? '',
+                titleText: columns[3] ?? '',
+                amountText: columns[4] ?? '',
+                notesText: columns[5] ?? '',
+                sourceText: columns[6] ?? '',
+              );
         if (parsed.record != null) {
           records.add(parsed.record!);
         } else if (parsed.failure != null) {
@@ -143,6 +212,26 @@ ImportParseResult? _parseXlsxByXml(Uint8List bytes) {
   } catch (_) {
     return null;
   }
+}
+
+List<String> _readWorksheetNames(Archive archive) {
+  ArchiveFile? workbookFile;
+  for (final item in archive.files) {
+    if (item.name == 'xl/workbook.xml') {
+      workbookFile = item;
+      break;
+    }
+  }
+  if (workbookFile == null) {
+    return const <String>[];
+  }
+
+  final xml = utf8.decode(workbookFile.content as List<int>);
+  final document = XmlDocument.parse(xml);
+  return document
+      .findAllElements('sheet')
+      .map((sheet) => sheet.getAttribute('name') ?? '')
+      .toList();
 }
 
 List<String> _readSharedStrings(Archive archive) {
@@ -205,6 +294,7 @@ RecordRowParseResult _parseRecordCells({
   required xl.Data? titleCell,
   required xl.Data? amountCell,
   xl.Data? notesCell,
+  xl.Data? sourceCell,
 }) {
   return parseImportRecordColumns(
     rowNumber: rowNumber,
@@ -214,6 +304,35 @@ RecordRowParseResult _parseRecordCells({
     titleText: _cellString(titleCell),
     amountText: _amountTextFromCell(amountCell),
     notesText: _cellString(notesCell),
+    sourceText: _cellString(sourceCell),
+  );
+}
+
+RecordRowParseResult _parseWealthRecordCells({
+  required int rowNumber,
+  required xl.Data? dateCell,
+  required xl.Data? typeCell,
+  required xl.Data? categoryCell,
+  required xl.Data? titleCell,
+  required xl.Data? amountCell,
+  xl.Data? notesCell,
+  xl.Data? sourceCell,
+  xl.Data? annualRateCell,
+  xl.Data? maturityDateCell,
+  xl.Data? remindCell,
+}) {
+  return parseWealthImportRecordColumns(
+    rowNumber: rowNumber,
+    dateText: _cellString(dateCell),
+    typeText: _cellString(typeCell),
+    categoryText: _cellString(categoryCell),
+    titleText: _cellString(titleCell),
+    amountText: _amountTextFromCell(amountCell),
+    notesText: _cellString(notesCell),
+    sourceText: _cellString(sourceCell),
+    annualRateText: _amountTextFromCell(annualRateCell),
+    maturityDateText: _cellString(maturityDateCell),
+    remindText: _cellString(remindCell),
   );
 }
 
