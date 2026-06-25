@@ -354,7 +354,6 @@ class _SubCategorySlidableRow extends StatelessWidget {
         category: category,
         subtitle: '子分类',
         indent: 28,
-        showDragHandle: false,
       ),
     );
   }
@@ -366,14 +365,12 @@ class _CategoryRowContent extends StatelessWidget {
     required this.subtitle,
     this.trailing,
     this.indent = 0,
-    this.showDragHandle = true,
   });
 
   final LedgerCategory category;
   final String subtitle;
   final Widget? trailing;
   final double indent;
-  final bool showDragHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -397,13 +394,7 @@ class _CategoryRowContent extends StatelessWidget {
           subtitle,
           style: AppTextStyles.bodyMuted(context),
         ),
-        trailing: trailing ??
-            (showDragHandle
-                ? Icon(
-                    Icons.drag_indicator_rounded,
-                    color: colors.chevron,
-                  )
-                : null),
+        trailing: trailing,
       ),
     );
   }
